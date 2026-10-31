@@ -1,0 +1,1 @@
+make the system more user friendly and i want the jack template only in black and white and make sure there no white on white that makes the system is not good. and for the company suggested, give the details about the company and also not only make resume for them but also make the application letter too. and location targetted and give location for the company suggested 

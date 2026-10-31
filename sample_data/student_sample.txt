@@ -1,0 +1,43 @@
+ALEX CHEN
+San Francisco, CA | (555) 123-4567 | alex.chen@email.edu
+linkedin.com/in/alexchen-dev | github.com/alexchen-tech
+
+EDUCATION
+University of California, Berkeley
+Bachelor of Science in Computer Science
+Expected Graduation: May 2026 | GPA: 3.82
+Relevant Coursework: Data Structures & Algorithms, Operating Systems, Database Management Systems, Computer Networks, Software Engineering.
+
+TECHNICAL SKILLS
+Languages: Python, Java, C++, JavaScript, TypeScript, SQL
+Frameworks & Libraries: React, Node.js, Express, FastAPI, PyTorch, Tailwind CSS
+Tools & Cloud: Git, Docker, AWS (S3, EC2), PostgreSQL, MongoDB, Linux
+
+EXPERIENCE
+Undergraduate Research Assistant | UC Berkeley AI Lab
+Jan 2024 – Present | Berkeley, CA
+- Worked on computer vision pipelines using Python and PyTorch.
+- Processed and labeled over 50,000 images for neural network model training.
+- Improved data ingestion throughput by 35% through multiprocessing techniques.
+
+Software Engineering Intern | NextGen Solutions
+June 2023 – Aug 2023 | San Jose, CA
+- Built internal dashboard components using React and TypeScript for team of 30+ engineers.
+- Created RESTful API endpoints in Node.js to query customer usage metrics.
+- Participated in daily agile standups and code reviews via GitHub.
+
+PROJECTS
+SmartStudy: AI Flashcard & Quiz Generator (Python, FastAPI, OpenAI API, PostgreSQL)
+- Developed a full-stack web application allowing students to generate study quizzes from lecture slides.
+- Implemented document parsing and semantic search to extract key concepts with 92% retrieval accuracy.
+- Deployed backend on AWS EC2 and database on AWS RDS with 99.9% uptime.
+
+CampusEvent: Real-time Campus Event Finder (React, Node.js, Socket.io, MongoDB)
+- Engineered real-time notification engine for university clubs, serving 1,200+ monthly active students.
+- Designed responsive user interface with interactive maps and RSVP tracking.
+
+HONORS & ACTIVITIES
+- Dean's Honors List (All Semesters)
+- 1st Place Winner - CalHacks 2023 (1,500+ participants)
+- VP of Technology, Association for Computing Machinery (ACM) Student Chapter
+

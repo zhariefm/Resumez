@@ -1,0 +1,24 @@
+Company: Stripe
+Role: Software Engineering Intern - Infrastructure & APIs
+Location: San Francisco, CA / Remote
+
+About Stripe:
+Stripe builds economic infrastructure for the internet. Businesses of every size—from new startups to public companies—use our software to accept payments and manage their businesses online.
+
+About the Role:
+We are looking for enthusiastic Software Engineering Interns to join our Infrastructure and Core API teams. You will work on distributed systems, high-availability services, and developer-facing APIs that process billions of dollars in transactions.
+
+Key Responsibilities:
+- Design, build, and maintain high-performance, fault-tolerant backend services and RESTful APIs.
+- Collaborate with senior engineers on distributed data pipelines, caching, and storage scalability.
+- Write clean, maintainable, and well-tested code in Python, Java, or Go.
+- Participate in design reviews, production monitoring, and automated CI/CD deployment pipelines.
+
+Qualifications:
+- Currently enrolled in a BS or MS program in Computer Science or related STEM field.
+- Strong foundation in computer science fundamentals: data structures, algorithms, and system design.
+- Proficiency in at least one modern language: Python, Java, Go, or C++.
+- Familiarity with SQL/NoSQL databases, API design principles, and cloud environments (AWS/GCP).
+- Passion for developer experience, code reliability, and solving complex architectural bottlenecks.
+- Excellent communication and collaboration skills.
+
