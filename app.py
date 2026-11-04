@@ -1,8 +1,6 @@
 import os
 import io
-import base64
-import streamlit as st
-import pandas as pd
+from flask import Flask, render_template, request, jsonify, send_file, session
 from dotenv import load_dotenv
 
 from resume_parser import extract_resume_text
@@ -10,6 +8,7 @@ from tailor_engine import tailor_resume_and_letter, recommend_companies_for_stud
 from docx_generator import create_jakes_resume_docx, create_application_letter_docx
 from pdf_generator import create_jakes_resume_pdf, create_application_letter_pdf
 from tracker import (
+    init_db,
     save_application,
     get_all_applications,
     get_application,
@@ -18,1477 +17,278 @@ from tracker import (
 )
 
 load_dotenv()
-
-st.set_page_config(
-    page_title="Resumez",
-    page_icon="",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# --- APPLE DESIGN SYSTEM (MINIMALIST, CLEAN, NO JARGON) ---
-st.markdown("""
-<style>
-    /* Apple Global Typography & Neutral Canvas */
-    html, body, [class*="css"], .stApp {
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-        background-color: #f5f5f7 !important;
-        color: #1d1d1f !important;
-        letter-spacing: -0.015em;
-    }
-
-    .block-container {
-        max-width: 980px !important;
-        padding-top: 1.75rem !important;
-        padding-bottom: 4rem !important;
-    }
-
-    /* Icon Font Protection */
-    [data-testid="stIconMaterial"], 
-    .material-symbols-rounded, 
-    .material-symbols-outlined, 
-    .material-icons,
-    span[data-testid*="stIcon"] {
-        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
-        font-style: normal !important;
-        font-weight: normal !important;
-        display: inline-block !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-    }
-
-    p, label, li, h1, h2, h3, h4, h5, h6 {
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-        color: #1d1d1f !important;
-    }
-
-    #MainMenu, footer, header {visibility: hidden;}
-
-    /* --- APPLE HEADER & SEGMENTED CONTROLS --- */
-    .apple-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-        padding-bottom: 0.5rem;
-    }
-
-    .apple-brand {
-        font-size: 1.45rem;
-        font-weight: 700;
-        letter-spacing: -0.03em;
-        color: #1d1d1f !important;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .apple-nav-track {
-        display: flex;
-        align-items: center;
-        background: #e5e5ea;
-        padding: 3px;
-        border-radius: 980px;
-        gap: 2px;
-    }
-
-    .apple-nav-pill {
-        padding: 0.35rem 0.95rem;
-        border-radius: 980px;
-        font-size: 0.82rem;
-        font-weight: 500;
-        color: #86868b;
-        transition: all 0.2s ease;
-    }
-
-    .apple-nav-pill-active {
-        background: #ffffff;
-        color: #1d1d1f !important;
-        font-weight: 600;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-    }
-
-    .apple-nav-pill-done {
-        color: #34c759 !important;
-        font-weight: 600;
-    }
-
-    /* --- APPLE CLEAN SURFACES (CARDS) --- */
-    .apple-card {
-        background: #ffffff !important;
-        border: 1px solid #d2d2d7 !important;
-        border-radius: 18px !important;
-        padding: 2.25rem 2.5rem !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
-        margin-bottom: 1.75rem !important;
-        animation: appleFadeIn 0.25s ease-out;
-    }
-
-    @keyframes appleFadeIn {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .apple-title {
-        font-size: 1.85rem !important;
-        font-weight: 700 !important;
-        color: #1d1d1f !important;
-        letter-spacing: -0.03em !important;
-        margin: 0 0 0.35rem 0 !important;
-    }
-
-    .apple-subtitle {
-        font-size: 1rem !important;
-        color: #86868b !important;
-        margin: 0 0 1.5rem 0 !important;
-        line-height: 1.45 !important;
-    }
-
-    /* --- APPLE INPUT FIELDS --- */
-    div[data-baseweb="input"],
-    div[data-baseweb="base-input"],
-    div[data-baseweb="textarea"],
-    .stTextInput>div>div,
-    .stTextArea>div>div {
-        background-color: #ffffff !important;
-        border: 1px solid #d2d2d7 !important;
-        border-radius: 12px !important;
-        box-shadow: none !important;
-        transition: all 0.2s ease !important;
-    }
-
-    div[data-baseweb="input"]:focus-within,
-    div[data-baseweb="textarea"]:focus-within,
-    .stTextInput>div>div:focus-within,
-    .stTextArea>div>div:focus-within {
-        border-color: #0071e3 !important;
-        box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15) !important;
-    }
-
-    .stTextInput input, 
-    .stTextArea textarea {
-        background-color: #ffffff !important;
-        color: #1d1d1f !important;
-        font-size: 0.94rem !important;
-        border: none !important;
-    }
-
-    /* Dropzone */
-    [data-testid="stFileUploader"] section,
-    [data-testid="stFileUploaderDropzone"] {
-        background-color: #ffffff !important;
-        border: 1.5px dashed #c7c7cc !important;
-        border-radius: 14px !important;
-        padding: 1.5rem !important;
-        transition: all 0.2s ease !important;
-    }
-
-    [data-testid="stFileUploader"] section:hover,
-    [data-testid="stFileUploaderDropzone"]:hover {
-        background-color: #fbfbfd !important;
-        border-color: #0071e3 !important;
-    }
-
-    [data-testid="stFileUploader"] button {
-        background: #f5f5f7 !important;
-        color: #1d1d1f !important;
-        border: 1px solid #d2d2d7 !important;
-        border-radius: 980px !important;
-        font-weight: 500 !important;
-        font-size: 0.88rem !important;
-        padding: 0.4rem 1.25rem !important;
-    }
-
-    /* Buttons */
-    .stButton>button {
-        border-radius: 980px !important;
-        font-weight: 500 !important;
-        font-size: 0.92rem !important;
-        padding: 0.55rem 1.4rem !important;
-        transition: all 0.2s ease !important;
-    }
-
-    .stButton>button[kind="primary"] {
-        background: #0071e3 !important;
-        color: #ffffff !important;
-        border: none !important;
-    }
-
-    .stButton>button[kind="primary"] * {
-        color: #ffffff !important;
-    }
-
-    .stButton>button[kind="primary"]:hover {
-        background: #0077ed !important;
-    }
-
-    .stButton>button[kind="secondary"],
-    .stButton>button:not([kind="primary"]) {
-        background: #f5f5f7 !important;
-        color: #1d1d1f !important;
-        border: 1px solid #d2d2d7 !important;
-    }
-
-    .stButton>button[kind="secondary"]:hover,
-    .stButton>button:not([kind="primary"]):hover {
-        background: #e8e8ed !important;
-    }
-
-    /* Keyword Badges */
-    .kw-badge-matched {
-        display: inline-flex;
-        align-items: center;
-        background: #eaf7ed;
-        color: #1e7e34;
-        border: 1px solid #c3e6cb;
-        border-radius: 980px;
-        padding: 0.28rem 0.75rem;
-        font-size: 0.82rem;
-        font-weight: 600;
-        margin: 3px 4px 3px 0;
-    }
-
-    .kw-badge-missing {
-        display: inline-flex;
-        align-items: center;
-        background: #fff8e1;
-        color: #b78103;
-        border: 1px solid #ffe082;
-        border-radius: 980px;
-        padding: 0.28rem 0.75rem;
-        font-size: 0.82rem;
-        font-weight: 600;
-        margin: 3px 4px 3px 0;
-    }
-
-    /* Outreach Card */
-    .apple-outreach-card {
-        background: #ffffff;
-        border: 1px solid #d2d2d7;
-        border-radius: 14px;
-        padding: 1.35rem 1.5rem;
-        margin-bottom: 1rem;
-    }
-
-    /* Metric Cards */
-    .apple-metric-card {
-        background: #f5f5f7;
-        border: 1px solid #e5e5ea;
-        border-radius: 14px;
-        padding: 1.15rem 1rem;
-        text-align: center;
-    }
-
-    .apple-metric-val {
-        font-size: 1.95rem;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin: 0.15rem 0;
-    }
-
-    .apple-metric-label {
-        font-size: 0.76rem;
-        color: #86868b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    /* Company Card */
-    .apple-company-card {
-        background: #ffffff;
-        border: 1px solid #d2d2d7;
-        border-radius: 16px;
-        padding: 1.35rem 1.5rem;
-        margin-bottom: 1.15rem;
-        transition: all 0.2s ease;
-    }
-
-    .apple-company-card:hover {
-        border-color: #0071e3;
-        box-shadow: 0 4px 16px rgba(0, 113, 227, 0.08);
-    }
-
-    .apple-comp-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.35rem;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .apple-comp-name {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #1d1d1f;
-    }
-
-    .apple-link-btn {
-        color: #0071e3 !important;
-        font-size: 0.82rem;
-        font-weight: 500;
-        text-decoration: none !important;
-        padding: 0.2rem 0.65rem;
-        background: #f5f5f7;
-        border-radius: 980px;
-    }
-
-    .apple-link-btn:hover {
-        background: #e8e8ed;
-    }
-
-    .apple-score-pill {
-        background: #f5f5f7;
-        border: 1px solid #e5e5ea;
-        color: #0071e3;
-        font-weight: 600;
-        font-size: 0.82rem;
-        padding: 0.25rem 0.65rem;
-        border-radius: 980px;
-    }
-
-    /* Jake's Paper (Pure ATS B&W) */
-    .jakes-paper, .letter-paper {
-        background: #ffffff !important;
-        border: 1px solid #d2d2d7;
-        padding: 2.75rem 3.25rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-        color: #000000 !important;
-        line-height: 1.35;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-
-    .jakes-paper *, .letter-paper * {
-        color: #000000 !important;
-    }
-
-    .jakes-name {
-        text-align: center;
-        font-size: 1.85rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        margin-bottom: 0.15rem;
-    }
-
-    .jakes-contact {
-        text-align: center;
-        font-size: 0.88rem;
-        margin-bottom: 1rem;
-    }
-
-    .jakes-section-title {
-        font-size: 0.95rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        border-bottom: 1px solid #000000;
-        padding-bottom: 2px;
-        margin-top: 1rem;
-        margin-bottom: 0.4rem;
-        letter-spacing: 0.03em;
-    }
-
-    .jakes-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin-top: 0.25rem;
-        margin-bottom: 0.1rem;
-    }
-
-    .jakes-bold { font-weight: 700; }
-    .jakes-italic { font-style: italic; }
-
-    .jakes-ul {
-        margin: 0.2rem 0 0.5rem 1.25rem;
-        padding: 0;
-    }
-
-    .jakes-ul li {
-        font-size: 0.88rem;
-        margin-bottom: 0.25rem;
-    }
-
-    /* Map Box */
-    [data-testid="stDeckGlJsonChart"], [data-testid="stMap"] {
-        border: 1px solid #d2d2d7 !important;
-        border-radius: 14px !important;
-        overflow: hidden !important;
-    }
-
-    /* Tabs */
-    div[data-baseweb="tab-list"] {
-        gap: 0.5rem !important;
-        border-bottom: 1px solid #d2d2d7 !important;
-        padding-bottom: 4px !important;
-    }
-
-    div[data-baseweb="tab"] {
-        font-weight: 500 !important;
-        font-size: 0.88rem !important;
-        color: #86868b !important;
-        border-radius: 8px !important;
-        padding: 0.4rem 0.85rem !important;
-    }
-
-    div[data-baseweb="tab"][aria-selected="true"] {
-        color: #1d1d1f !important;
-        font-weight: 600 !important;
-    }
-
-    @media (max-width: 768px) {
-        .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }
-        .apple-card {
-            padding: 1.35rem 1.15rem !important;
-            border-radius: 16px !important;
-        }
-        .apple-title {
-            font-size: 1.5rem !important;
-        }
-        .stButton>button {
-            width: 100% !important;
-            min-height: 44px !important;
-        }
-        .jakes-paper, .letter-paper {
-            padding: 1.25rem 1rem !important;
-        }
-        .jakes-row {
-            flex-direction: column !important;
-            gap: 2px !important;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- GLOBAL TECH HUBS DATABASE ---
-TECH_COUNTRIES = {
-    "United States": {
-        "hubs": ["San Francisco Bay Area, CA", "New York, NY", "Seattle, WA", "Austin, TX", "Boston, MA", "Los Angeles, CA", "Remote (US)"],
-        "coords": [37.7749, -122.4194],
-        "zoom": 4,
-        "city_coords": {
-            "San Francisco Bay Area, CA": [37.7749, -122.4194],
-            "New York, NY": [40.7128, -74.0060],
-            "Seattle, WA": [47.6062, -122.3321],
-            "Austin, TX": [30.2672, -97.7431],
-            "Boston, MA": [42.3601, -71.0589],
-            "Los Angeles, CA": [34.0522, -118.2437],
-            "Remote (US)": [39.8283, -98.5795],
-        }
-    },
-    "United Kingdom": {
-        "hubs": ["London", "Cambridge", "Manchester", "Edinburgh", "Bristol", "Remote (UK)"],
-        "coords": [51.5074, -0.1278],
-        "zoom": 6,
-        "city_coords": {
-            "London": [51.5074, -0.1278],
-            "Cambridge": [52.2053, 0.1218],
-            "Manchester": [53.4808, -2.2426],
-            "Edinburgh": [55.9533, -3.1883],
-            "Bristol": [51.4545, -2.5879],
-            "Remote (UK)": [54.5, -3.0],
-        }
-    },
-    "Singapore": {
-        "hubs": ["Downtown Core / Marina Bay", "One-North Tech Hub", "Jurong Innovation District", "Changi Business Park", "Remote (Singapore)"],
-        "coords": [1.3521, 103.8198],
-        "zoom": 11,
-        "city_coords": {
-            "Downtown Core / Marina Bay": [1.2879, 103.8519],
-            "One-North Tech Hub": [1.2988, 103.7874],
-            "Jurong Innovation District": [1.3404, 103.6967],
-            "Changi Business Park": [1.3347, 103.9634],
-            "Remote (Singapore)": [1.3521, 103.8198],
-        }
-    },
-    "Canada": {
-        "hubs": ["Toronto, ON", "Vancouver, BC", "Montreal, QC", "Waterloo / Kitchener, ON", "Ottawa, ON", "Remote (Canada)"],
-        "coords": [43.6532, -79.3832],
-        "zoom": 5,
-        "city_coords": {
-            "Toronto, ON": [43.6532, -79.3832],
-            "Vancouver, BC": [49.2827, -123.1207],
-            "Montreal, QC": [45.5017, -73.5673],
-            "Waterloo / Kitchener, ON": [43.4643, -80.5204],
-            "Ottawa, ON": [45.4215, -75.6972],
-            "Remote (Canada)": [56.1304, -106.3468],
-        }
-    },
-    "Germany": {
-        "hubs": ["Berlin", "Munich", "Frankfurt", "Hamburg", "Stuttgart", "Remote (Germany)"],
-        "coords": [52.5200, 13.4050],
-        "zoom": 6,
-        "city_coords": {
-            "Berlin": [52.5200, 13.4050],
-            "Munich": [48.1351, 11.5820],
-            "Frankfurt": [50.1109, 8.6821],
-            "Hamburg": [53.5511, 9.9937],
-            "Stuttgart": [48.7758, 9.1829],
-            "Remote (Germany)": [51.1657, 10.4515],
-        }
-    },
-    "Malaysia": {
-        "hubs": ["Kuala Lumpur / Bangsar South", "Cyberjaya Tech Hub", "Penang / Bayan Lepas", "Petaling Jaya", "Remote (Malaysia)"],
-        "coords": [3.1390, 101.6869],
-        "zoom": 10,
-        "city_coords": {
-            "Kuala Lumpur / Bangsar South": [3.1118, 101.6669],
-            "Cyberjaya Tech Hub": [2.9213, 101.6559],
-            "Penang / Bayan Lepas": [5.2974, 100.2831],
-            "Petaling Jaya": [3.1073, 101.6067],
-            "Remote (Malaysia)": [4.2105, 101.9758],
-        }
-    },
-    "Australia": {
-        "hubs": ["Sydney, NSW", "Melbourne, VIC", "Brisbane, QLD", "Perth, WA", "Remote (Australia)"],
-        "coords": [-33.8688, 151.2093],
-        "zoom": 5,
-        "city_coords": {
-            "Sydney, NSW": [-33.8688, 151.2093],
-            "Melbourne, VIC": [-37.8136, 144.9631],
-            "Brisbane, QLD": [-27.4698, 153.0251],
-            "Perth, WA": [-31.9505, 115.8605],
-            "Remote (Australia)": [-25.2744, 133.7751],
-        }
-    },
-    "Netherlands": {
-        "hubs": ["Amsterdam", "Rotterdam", "Utrecht", "Eindhoven Tech Hub", "Remote (Netherlands)"],
-        "coords": [52.3676, 4.9041],
-        "zoom": 7,
-        "city_coords": {
-            "Amsterdam": [52.3676, 4.9041],
-            "Rotterdam": [51.9244, 4.4777],
-            "Utrecht": [52.0907, 5.1214],
-            "Eindhoven Tech Hub": [51.4416, 5.4697],
-            "Remote (Netherlands)": [52.1326, 5.2913],
-        }
-    },
-    "India": {
-        "hubs": ["Bengaluru, Karnataka", "Hyderabad, Telangana", "Pune, Maharashtra", "Gurgaon / Delhi NCR", "Mumbai", "Remote (India)"],
-        "coords": [12.9716, 77.5946],
-        "zoom": 5,
-        "city_coords": {
-            "Bengaluru, Karnataka": [12.9716, 77.5946],
-            "Hyderabad, Telangana": [17.3850, 78.4867],
-            "Pune, Maharashtra": [18.5204, 73.8567],
-            "Gurgaon / Delhi NCR": [28.4595, 77.0266],
-            "Mumbai": [19.0760, 72.8777],
-            "Remote (India)": [20.5937, 78.9629],
-        }
-    },
-    "Japan": {
-        "hubs": ["Tokyo", "Osaka", "Kyoto", "Fukuoka Tech Hub", "Remote (Japan)"],
-        "coords": [35.6762, 139.6503],
-        "zoom": 8,
-        "city_coords": {
-            "Tokyo": [35.6580, 139.7016],
-            "Osaka": [34.6937, 135.5023],
-            "Kyoto": [35.0116, 135.7681],
-            "Fukuoka Tech Hub": [33.5904, 130.4017],
-            "Remote (Japan)": [36.2048, 138.2529],
-        }
-    },
-    "Global Remote": {
-        "hubs": ["Worldwide Remote", "North America Remote", "Europe / UK Remote", "APAC Remote"],
-        "coords": [20.0, 0.0],
-        "zoom": 2,
-        "city_coords": {
-            "Worldwide Remote": [20.0, 0.0],
-            "North America Remote": [39.8283, -98.5795],
-            "Europe / UK Remote": [54.5260, 15.2551],
-            "APAC Remote": [1.3521, 103.8198],
-        }
-    },
-    "Custom Location": {
-        "hubs": ["Custom City"],
-        "coords": [37.7749, -122.4194],
-        "zoom": 3,
-        "city_coords": {
-            "Custom City": [37.7749, -122.4194]
-        }
-    }
-}
-
-# --- STATE INITIALIZATION ---
-if "current_step" not in st.session_state:
-    st.session_state.current_step = 1
-
-if "career_level" not in st.session_state:
-    st.session_state.career_level = "student"
-if "student_text" not in st.session_state:
-    st.session_state.student_text = ""
-if "target_country" not in st.session_state:
-    st.session_state.target_country = "United States"
-if "target_hub" not in st.session_state:
-    st.session_state.target_hub = "San Francisco Bay Area, CA"
-if "target_location" not in st.session_state:
-    st.session_state.target_location = "San Francisco Bay Area, CA, United States"
-if "job_description" not in st.session_state:
-    st.session_state.job_description = ""
-if "company_name" not in st.session_state:
-    st.session_state.company_name = ""
-if "role_title" not in st.session_state:
-    st.session_state.role_title = ""
-if "company_website" not in st.session_state:
-    st.session_state.company_website = ""
-if "recommended_companies" not in st.session_state:
-    st.session_state.recommended_companies = []
-if "tailored_data" not in st.session_state:
-    st.session_state.tailored_data = None
-if "show_tracker" not in st.session_state:
-    st.session_state.show_tracker = False
-if "resume_preview_mode" not in st.session_state:
-    st.session_state.resume_preview_mode = "pdf"
-if "active_saved_id" not in st.session_state:
-    st.session_state.active_saved_id = None
-
-# --- TOP MINIMAL HEADER ---
-step = st.session_state.current_step
-s1_class = "apple-nav-pill apple-nav-pill-done" if step > 1 else ("apple-nav-pill apple-nav-pill-active" if step == 1 else "apple-nav-pill")
-s2_class = "apple-nav-pill apple-nav-pill-done" if step > 2 else ("apple-nav-pill apple-nav-pill-active" if step == 2 else "apple-nav-pill")
-s3_class = "apple-nav-pill apple-nav-pill-active" if step == 3 else "apple-nav-pill"
-
-saved_apps_count = len(get_all_applications())
-
-header_col1, header_col2, header_col3 = st.columns([2.5, 3.5, 2])
-
-with header_col1:
-    st.markdown('<div class="apple-brand" style="margin-top: 6px;">Resumez</div>', unsafe_allow_html=True)
-
-with header_col2:
-    st.markdown(f"""
-    <div style="display: flex; justify-content: center;">
-        <div class="apple-nav-track">
-            <div class="{s1_class}">1. Profile</div>
-            <div class="{s2_class}">2. Company</div>
-            <div class="{s3_class}">3. Tailor</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with header_col3:
-    tracker_btn_label = f"📁 Applications ({saved_apps_count})" if not st.session_state.show_tracker else "✕ Close Applications"
-    if st.button(tracker_btn_label, key="toggle_tracker_btn", use_container_width=True):
-        st.session_state.show_tracker = not st.session_state.show_tracker
-        st.rerun()
-
-st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-
-# --- APPLICATION TRACKER DRAWER (IF TOGGLED) ---
-if st.session_state.show_tracker:
-    st.markdown("""
-    <div class="apple-card">
-        <h2 class="apple-title">Saved Applications</h2>
-        <p class="apple-subtitle">Your personalized application pipeline and tailored documents.</p>
-    """, unsafe_allow_html=True)
-
+init_db()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "resumez-super-secret-key-2026")
+
+# In-memory storage cache for the active session (fallback if cookies exceed limit)
+SESSION_DATA_CACHE = {}
+
+
+def get_active_data(sid: str = None) -> dict:
+    if sid and sid in SESSION_DATA_CACHE:
+        return SESSION_DATA_CACHE[sid]
+    return session.get("tailored_data") or {}
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+# ==============================================================================
+# API ENDPOINTS
+# ==============================================================================
+
+@app.route("/api/upload-resume", methods=["POST"])
+def api_upload_resume():
+    if "resume_file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["resume_file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        text = extract_resume_text(file)
+        return jsonify({"text": text})
+    except Exception as e:
+        return jsonify({"error": f"Failed to extract resume text: {str(e)}"}), 500
+
+
+@app.route("/api/recommend-companies", methods=["POST"])
+def api_recommend_companies():
+    data = request.get_json() or {}
+    resume_text = data.get("resume_text", "").strip()
+    target_location = data.get("target_location", "Any")
+
+    if not resume_text:
+        return jsonify({"error": "Resume text is required"}), 400
+
+    try:
+        recs = recommend_companies_for_student(
+            resume_text=resume_text,
+            target_location=target_location
+        )
+        return jsonify({"recommendations": recs})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tailor", methods=["POST"])
+def api_tailor():
+    data = request.get_json() or {}
+    resume_text = data.get("resume_text", "").strip()
+    job_description = data.get("job_description", "").strip()
+    company_name = data.get("company_name", "").strip()
+    role_title = data.get("role_title", "").strip()
+    location = data.get("location", "").strip()
+    career_level = data.get("career_level", "student")
+
+    if not resume_text or not job_description:
+        return jsonify({"error": "Both resume profile and job description are required"}), 400
+
+    try:
+        tailored = tailor_resume_and_letter(
+            resume_text=resume_text,
+            job_description=job_description,
+            company_name=company_name,
+            role_title=role_title,
+            location=location,
+            career_level=career_level
+        )
+
+        # Save to SQLite Tracker
+        match_score = tailored.get("ats_assessment", {}).get("match_score", 90)
+        saved_id = save_application(
+            company_name=company_name,
+            role_title=role_title,
+            location=location,
+            match_score=match_score,
+            data=tailored,
+            status="Draft",
+            career_level=career_level
+        )
+
+        # Store in session and cache
+        session_id = session.get("sid") or os.urandom(16).hex()
+        session["sid"] = session_id
+        session["active_saved_id"] = saved_id
+        SESSION_DATA_CACHE[session_id] = tailored
+
+        return jsonify({
+            "tailored_data": tailored,
+            "saved_id": saved_id
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tune-bullet", methods=["POST"])
+def api_tune_bullet():
+    data = request.get_json() or {}
+    bullet_text = data.get("bullet_text", "").strip()
+    mode = data.get("mode", "add_metrics")
+    target_role = data.get("target_role", "Software Engineer")
+
+    if not bullet_text:
+        return jsonify({"error": "Bullet text is required"}), 400
+
+    try:
+        refined = tune_bullet(
+            bullet_text=bullet_text,
+            mode=mode,
+            target_role=target_role
+        )
+        return jsonify({"tuned_bullet": refined})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/applications", methods=["GET"])
+def api_get_applications():
     apps = get_all_applications()
-    if not apps:
-        st.info("No applications saved yet. Complete Step 3 to save your first application.")
-    else:
-        for item in apps:
-            a_id = item["id"]
-            a_comp = item["company_name"]
-            a_role = item["role_title"]
-            a_loc = item["location"]
-            a_score = item["match_score"]
-            a_status = item["status"]
-            a_date = item["created_at"][:10]
+    return jsonify({"applications": apps})
 
-            with st.container():
-                st.markdown(f"""
-                <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                    <div>
-                        <span style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f;">{a_comp}</span>
-                        <span style="color: #86868b; font-size: 0.9rem; margin-left: 0.4rem;">{a_role} &bull; {a_loc}</span>
-                        <div style="color: #86868b; font-size: 0.78rem; margin-top: 2px;">Saved on {a_date}</div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.6rem;">
-                        <span class="apple-score-pill">{a_score}% Match</span>
-                        <span style="background: #f5f5f7; border: 1px solid #d2d2d7; padding: 0.25rem 0.65rem; border-radius: 980px; font-size: 0.82rem; font-weight: 600; color: #1d1d1f;">{a_status}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
 
-                c_load, c_stat, c_del = st.columns([1.5, 2, 1])
-                with c_load:
-                    if st.button(f"Open Application →", key=f"open_app_{a_id}", use_container_width=True, type="primary"):
-                        full_rec = get_application(a_id)
-                        if full_rec and full_rec.get("data"):
-                            st.session_state.tailored_data = full_rec["data"]
-                            st.session_state.company_name = a_comp
-                            st.session_state.role_title = a_role
-                            st.session_state.target_location = a_loc
-                            st.session_state.career_level = full_rec.get("career_level", "student")
-                            st.session_state.active_saved_id = a_id
-                            st.session_state.show_tracker = False
-                            st.session_state.current_step = 3
-                            st.rerun()
+@app.route("/api/applications/<int:app_id>", methods=["GET"])
+def api_get_application(app_id):
+    app_record = get_application(app_id)
+    if not app_record:
+        return jsonify({"error": "Application not found"}), 404
 
-                with c_stat:
-                    status_opts = ["Draft", "Applied", "Interviewing", "Offer", "Archived"]
-                    stat_idx = status_opts.index(a_status) if a_status in status_opts else 0
-                    new_st = st.selectbox("Status", options=status_opts, index=stat_idx, key=f"stat_sel_{a_id}", label_visibility="collapsed")
-                    if new_st != a_status:
-                        update_application_status(a_id, new_st)
-                        st.rerun()
+    # Update active session
+    session_id = session.get("sid") or os.urandom(16).hex()
+    session["sid"] = session_id
+    session["active_saved_id"] = app_id
+    SESSION_DATA_CACHE[session_id] = app_record.get("data", {})
 
-                with c_del:
-                    if st.button("Delete", key=f"del_app_{a_id}", use_container_width=True):
-                        delete_application(a_id)
-                        st.toast("Application deleted.")
-                        st.rerun()
+    return jsonify(app_record)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+
+@app.route("/api/applications/<int:app_id>/status", methods=["POST"])
+def api_update_status(app_id):
+    data = request.get_json() or {}
+    status = data.get("status", "Draft")
+    update_application_status(app_id, status)
+    return jsonify({"success": True, "status": status})
+
+
+@app.route("/api/applications/<int:app_id>", methods=["DELETE"])
+def api_delete_application(app_id):
+    delete_application(app_id)
+    return jsonify({"success": True})
 
 
 # ==============================================================================
-# STEP 1: PROFILE & LOCATION
+# DOWNLOAD & PREVIEW ENDPOINTS
 # ==============================================================================
-if st.session_state.current_step == 1 and not st.session_state.show_tracker:
-    st.markdown("""
-    <div class="apple-card">
-        <h2 class="apple-title">Profile & Location</h2>
-        <p class="apple-subtitle">Select your career phase, upload your background, and pick your target hiring market.</p>
-    """, unsafe_allow_html=True)
 
-    # Career Stage Switcher
-    st.markdown("**Career Stage**")
-    career_choice = st.radio(
-        "Career Stage",
-        options=["Student / New Grad", "Experienced Professional"],
-        index=0 if st.session_state.career_level == "student" else 1,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.session_state.career_level = "student" if "Student" in career_choice else "experienced"
-
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-
-    # Resume Upload
-    uploaded_file = st.file_uploader(
-        "Upload Resume (PDF, DOCX, TXT):",
-        type=["pdf", "docx", "txt", "md"]
-    )
-    if uploaded_file is not None:
-        try:
-            extracted = extract_resume_text(uploaded_file)
-            st.session_state.student_text = extracted
-            st.toast("Resume parsed successfully.", icon="✓")
-        except Exception as e:
-            st.error(str(e))
-
-    student_text_input = st.text_area(
-        "Resume Details & Background:",
-        value=st.session_state.student_text,
-        height=220,
-        placeholder="Or paste your experience, projects, skills, and coursework here..."
-    )
-    st.session_state.student_text = student_text_input
-
-    # Location Section
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    st.markdown("**Target Location**")
-    loc_col1, loc_col2 = st.columns([1, 1], gap="medium")
-    
-    with loc_col1:
-        country_keys = list(TECH_COUNTRIES.keys())
-        country_idx = country_keys.index(st.session_state.target_country) if st.session_state.target_country in country_keys else 0
-
-        selected_country = st.selectbox(
-            "Country",
-            options=country_keys,
-            index=country_idx,
-            label_visibility="collapsed"
-        )
-        st.session_state.target_country = selected_country
-
-        country_data = TECH_COUNTRIES[selected_country]
-        hub_options = country_data["hubs"]
-        hub_idx = hub_options.index(st.session_state.target_hub) if st.session_state.target_hub in hub_options else 0
-
-        selected_hub = st.selectbox(
-            "City / Region",
-            options=hub_options,
-            index=hub_idx
-        )
-        st.session_state.target_hub = selected_hub
-
-        custom_loc = ""
-        if "Custom" in selected_country or "Custom" in selected_hub:
-            custom_loc = st.text_input("Custom City", placeholder="e.g. Zurich, Switzerland")
-
-        if custom_loc.strip():
-            final_location_str = custom_loc.strip()
-        elif "Remote" in selected_country or "Worldwide" in selected_hub:
-            final_location_str = f"{selected_hub}"
-        else:
-            final_location_str = f"{selected_hub}, {selected_country}"
-
-        st.session_state.target_location = final_location_str
-        st.caption(f"Active location: **{final_location_str}**")
-
-    with loc_col2:
-        coords = country_data.get("city_coords", {}).get(selected_hub, country_data.get("coords", [37.7749, -122.4194]))
-        zoom_level = country_data.get("zoom", 5)
-
-        map_df = pd.DataFrame([{"lat": coords[0], "lon": coords[1]}])
-        st.map(map_df, zoom=zoom_level, height=195)
-
-    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
-
-    # Next Action
-    btn_col1, btn_col2, btn_col3 = st.columns([1.5, 2, 1.5])
-    with btn_col2:
-        if st.button("Continue to Company Selection →", use_container_width=True, type="primary"):
-            if not st.session_state.student_text.strip():
-                st.warning("Please upload or enter your resume details first.")
-            else:
-                if not st.session_state.recommended_companies:
-                    with st.spinner("Finding matching companies..."):
-                        try:
-                            recs = recommend_companies_for_student(
-                                resume_text=st.session_state.student_text,
-                                target_location=st.session_state.target_location
-                            )
-                            st.session_state.recommended_companies = recs
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                st.session_state.current_step = 2
-                st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ==============================================================================
-# STEP 2: COMPANY SELECTION
-# ==============================================================================
-elif st.session_state.current_step == 2 and not st.session_state.show_tracker:
-    st.markdown("""
-    <div class="apple-card">
-        <h2 class="apple-title">Target Company</h2>
-        <p class="apple-subtitle">Select an employer matching your profile or enter a custom job description.</p>
-    """, unsafe_allow_html=True)
-
-    if st.button("← Back to Profile", type="secondary"):
-        st.session_state.current_step = 1
-        st.rerun()
-
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-
-    tab_recommended, tab_custom = st.tabs(["Recommended Employers", "Custom Role"])
-
-    with tab_recommended:
-        if not st.session_state.recommended_companies:
-            st.info("No recommendations found yet.")
-            if st.button("Search Companies", type="primary"):
-                with st.spinner("Searching..."):
-                    try:
-                        recs = recommend_companies_for_student(
-                            resume_text=st.session_state.student_text,
-                            target_location=st.session_state.target_location
-                        )
-                        st.session_state.recommended_companies = recs
-                        st.rerun()
-                    except Exception as e:
-                        st.error(str(e))
-        else:
-            for idx, rec in enumerate(st.session_state.recommended_companies):
-                c_name = rec.get("company_name", "Company")
-                website = rec.get("website_url", "https://google.com")
-                target_loc = rec.get("target_locations", st.session_state.target_location)
-                r_title = rec.get("role_title", "Software Engineer")
-                overview = rec.get("company_overview", "")
-                fit = rec.get("fit_score", 90)
-
-                with st.container():
-                    st.markdown(f"""
-                    <div class="apple-company-card">
-                        <div class="apple-comp-header">
-                            <div>
-                                <span class="apple-comp-name">{c_name}</span>
-                                <a href="{website}" target="_blank" class="apple-link-btn" style="margin-left: 0.5rem;">Website ↗</a>
-                            </div>
-                            <span class="apple-score-pill">{fit}% Match</span>
-                        </div>
-                        <div style="font-weight: 600; color: #1d1d1f; margin-bottom: 0.2rem;">{r_title} &nbsp;•&nbsp; <span style="color: #86868b; font-weight: normal;">{target_loc}</span></div>
-                        <div style="font-size: 0.9rem; color: #515154; margin-bottom: 0.5rem;">{overview}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button(f"Tailor for {c_name} →", key=f"btn_choose_{idx}", use_container_width=True, type="primary"):
-                        st.session_state.company_name = c_name
-                        st.session_state.role_title = r_title
-                        st.session_state.company_website = website
-                        st.session_state.job_description = rec.get("job_description", "")
-
-                        with st.spinner(f"Tailoring documents for {c_name}..."):
-                            try:
-                                res = tailor_resume_and_letter(
-                                    resume_text=st.session_state.student_text,
-                                    job_description=st.session_state.job_description,
-                                    company_name=c_name,
-                                    role_title=r_title,
-                                    location=target_loc,
-                                    career_level=st.session_state.career_level
-                                )
-                                st.session_state.tailored_data = res
-                                # Auto-save to tracker
-                                new_id = save_application(
-                                    company_name=c_name,
-                                    role_title=r_title,
-                                    location=target_loc,
-                                    match_score=res.get("ats_assessment", {}).get("match_score", 90),
-                                    data=res,
-                                    status="Draft",
-                                    career_level=st.session_state.career_level
-                                )
-                                st.session_state.active_saved_id = new_id
-                                st.session_state.current_step = 3
-                                st.rerun()
-                            except Exception as e:
-                                st.error(str(e))
-
-    with tab_custom:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.session_state.company_name = st.text_input("Company Name", value=st.session_state.company_name, placeholder="e.g. Apple, Stripe")
-        with c2:
-            st.session_state.role_title = st.text_input("Role Title", value=st.session_state.role_title, placeholder="e.g. Software Engineer")
-
-        st.session_state.company_website = st.text_input("Website URL", value=st.session_state.company_website, placeholder="e.g. https://apple.com")
-        st.session_state.job_description = st.text_area(
-            "Job Description",
-            value=st.session_state.job_description,
-            height=180,
-            placeholder="Paste the role requirements and qualifications here..."
-        )
-
-        if st.button("Tailor Resume →", use_container_width=True, type="primary"):
-            if not st.session_state.student_text.strip():
-                st.warning("Please provide your resume details in Step 1.")
-            elif not st.session_state.job_description.strip():
-                st.warning("Please paste the job description.")
-            else:
-                with st.spinner("Tailoring documents..."):
-                    try:
-                        res = tailor_resume_and_letter(
-                            resume_text=st.session_state.student_text,
-                            job_description=st.session_state.job_description,
-                            company_name=st.session_state.company_name,
-                            role_title=st.session_state.role_title,
-                            location=st.session_state.target_location,
-                            career_level=st.session_state.career_level
-                        )
-                        st.session_state.tailored_data = res
-                        new_id = save_application(
-                            company_name=st.session_state.company_name,
-                            role_title=st.session_state.role_title,
-                            location=st.session_state.target_location,
-                            match_score=res.get("ats_assessment", {}).get("match_score", 90),
-                            data=res,
-                            status="Draft",
-                            career_level=st.session_state.career_level
-                        )
-                        st.session_state.active_saved_id = new_id
-                        st.session_state.current_step = 3
-                        st.rerun()
-                    except Exception as e:
-                        st.error(str(e))
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ==============================================================================
-# STEP 3: REVIEW & EXPORT
-# ==============================================================================
-elif st.session_state.current_step == 3 and not st.session_state.show_tracker:
-    data = st.session_state.tailored_data
+@app.route("/preview/resume/pdf", methods=["GET"])
+def preview_resume_pdf():
+    sid = session.get("sid")
+    data = get_active_data(sid)
     if not data:
-        st.warning("No tailored data available.")
-        if st.button("Return to Step 2"):
-            st.session_state.current_step = 2
-            st.rerun()
-    else:
-        assessment = data.get("ats_assessment", {})
-        score = assessment.get("match_score", 92)
-        breakdown = assessment.get("breakdown", {})
-        s_score = breakdown.get("skills_match_score", 95)
-        i_score = breakdown.get("impact_metric_score", 90)
-        f_score = breakdown.get("format_compliance_score", 98)
-        b_score = breakdown.get("brevity_score", 92)
+        # Fallback to last saved application in DB
+        apps = get_all_applications()
+        if apps:
+            last = get_application(apps[0]["id"])
+            if last and last.get("data"):
+                data = last["data"]
 
-        target_comp = assessment.get("target_company") or st.session_state.company_name or "Company"
-        target_r = assessment.get("target_role") or st.session_state.role_title or "Role"
-        rep_loc = assessment.get("location") or st.session_state.target_location
+    if not data:
+        return "No resume data available", 404
 
-        st.markdown(f"""
-        <div class="apple-card">
-            <h2 class="apple-title">{target_comp} Application</h2>
-            <p class="apple-subtitle">{target_r} &nbsp;&bull;&nbsp; {rep_loc} &nbsp;&bull;&nbsp; <span style="text-transform: capitalize;">{st.session_state.career_level} Level</span></p>
-        """, unsafe_allow_html=True)
+    buffer = create_jakes_resume_pdf(data)
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=False
+    )
 
-        # Nav Actions & Status Sync
-        b1, b2, b3 = st.columns([1.5, 3, 1.5])
-        with b1:
-            if st.button("← Change Company", type="secondary"):
-                st.session_state.current_step = 2
-                st.rerun()
-        with b2:
-            if st.session_state.active_saved_id:
-                curr_app = get_application(st.session_state.active_saved_id)
-                curr_stat = curr_app.get("status", "Draft") if curr_app else "Draft"
-                sc1, sc2 = st.columns([1.5, 2.5])
-                with sc1:
-                    st.markdown("<div style='text-align: right; padding-top: 6px; font-weight: 500; font-size: 0.88rem; color: #86868b;'>Pipeline Status:</div>", unsafe_allow_html=True)
-                with sc2:
-                    status_choices = ["Draft", "Applied", "Interviewing", "Offer", "Archived"]
-                    s_idx = status_choices.index(curr_stat) if curr_stat in status_choices else 0
-                    chosen_stat = st.selectbox("Pipeline Status", options=status_choices, index=s_idx, label_visibility="collapsed", key="active_app_status")
-                    if chosen_stat != curr_stat:
-                        update_application_status(st.session_state.active_saved_id, chosen_stat)
-                        st.toast(f"Status updated to {chosen_stat}", icon="✓")
-        with b3:
-            if st.button("Start Over", type="secondary"):
-                st.session_state.current_step = 1
-                st.rerun()
 
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+@app.route("/download/resume/docx", methods=["GET"])
+def download_resume_docx():
+    sid = session.get("sid")
+    data = get_active_data(sid)
+    if not data:
+        return "No resume data available", 404
 
-        # Metrics Row
-        m0, m1, m2, m3, m4 = st.columns(5)
-        with m0:
-            st.markdown(f"""
-            <div class="apple-metric-card" style="background: #ffffff; border: 1.5px solid #0071e3;">
-                <div class="apple-metric-label" style="color: #0071e3;">Match Score</div>
-                <div class="apple-metric-val" style="color: #0071e3;">{score}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m1:
-            st.markdown(f"""
-            <div class="apple-metric-card">
-                <div class="apple-metric-label">Skills</div>
-                <div class="apple-metric-val">{s_score}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m2:
-            st.markdown(f"""
-            <div class="apple-metric-card">
-                <div class="apple-metric-label">Impact</div>
-                <div class="apple-metric-val">{i_score}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""
-            <div class="apple-metric-card">
-                <div class="apple-metric-label">Format</div>
-                <div class="apple-metric-val">{f_score}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m4:
-            st.markdown(f"""
-            <div class="apple-metric-card">
-                <div class="apple-metric-label">Length</div>
-                <div class="apple-metric-val">{b_score}%</div>
-            </div>
-            """, unsafe_allow_html=True)
+    name = data.get("personal_info", {}).get("name", "Candidate").replace(" ", "_")
+    company = data.get("ats_assessment", {}).get("target_company", "Company").replace(" ", "_")
+    filename = f"{name}_{company}_Resume.docx"
 
-        st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
+    buffer = create_jakes_resume_docx(data)
+    return send_file(
+        buffer,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        as_attachment=True,
+        download_name=filename
+    )
 
-        # Downloads
-        dl_col1, dl_col2 = st.columns(2, gap="medium")
-        student_clean = data.get("personal_info", {}).get("name", "Candidate").replace(" ", "_")
-        comp_clean = target_comp.replace(" ", "_")
 
-        resume_docx_buf = create_jakes_resume_docx(data)
-        resume_pdf_buf = create_jakes_resume_pdf(data)
-        letter_docx_buf = create_application_letter_docx(data)
-        letter_pdf_buf = create_application_letter_pdf(data)
+@app.route("/download/resume/pdf", methods=["GET"])
+def download_resume_pdf():
+    sid = session.get("sid")
+    data = get_active_data(sid)
+    if not data:
+        return "No resume data available", 404
 
-        with dl_col1:
-            st.markdown("**Resume (Jake's Clean ATS Format)**")
-            rc1, rc2 = st.columns(2)
-            with rc1:
-                st.download_button(
-                    "Download DOCX",
-                    data=resume_docx_buf,
-                    file_name=f"{student_clean}_{comp_clean}_Resume.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    type="primary",
-                    use_container_width=True
-                )
-            with rc2:
-                st.download_button(
-                    "Download PDF",
-                    data=resume_pdf_buf,
-                    file_name=f"{student_clean}_{comp_clean}_Resume.pdf",
-                    mime="application/pdf",
-                    type="secondary",
-                    use_container_width=True
-                )
+    name = data.get("personal_info", {}).get("name", "Candidate").replace(" ", "_")
+    company = data.get("ats_assessment", {}).get("target_company", "Company").replace(" ", "_")
+    filename = f"{name}_{company}_Resume.pdf"
 
-        with dl_col2:
-            st.markdown("**Cover Letter**")
-            lc1, lc2 = st.columns(2)
-            with lc1:
-                st.download_button(
-                    "Download DOCX",
-                    data=letter_docx_buf,
-                    file_name=f"{student_clean}_{comp_clean}_Letter.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    type="primary",
-                    use_container_width=True
-                )
-            with lc2:
-                st.download_button(
-                    "Download PDF",
-                    data=letter_pdf_buf,
-                    file_name=f"{student_clean}_{comp_clean}_Letter.pdf",
-                    mime="application/pdf",
-                    type="secondary",
-                    use_container_width=True
-                )
+    buffer = create_jakes_resume_pdf(data)
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename
+    )
 
-        # Tabs
-        st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
-        tab_res, tab_kw, tab_tune, tab_outreach, tab_let, tab_q, tab_li = st.tabs([
-            "Resume Preview",
-            "Keyword Matrix",
-            "Bullet Tuner",
-            "Outreach Suite",
-            "Cover Letter",
-            "Interview Prep",
-            "LinkedIn"
-        ])
 
-        # --- 1. RESUME PREVIEW (WITH LIVE VECTOR PDF VIEW) ---
-        with tab_res:
-            p_mode = st.radio(
-                "Preview Format",
-                options=["Live PDF Document", "Clean Text View"],
-                index=0 if st.session_state.resume_preview_mode == "pdf" else 1,
-                horizontal=True,
-                label_visibility="collapsed"
-            )
-            st.session_state.resume_preview_mode = "pdf" if "PDF" in p_mode else "paper"
+@app.route("/download/letter/docx", methods=["GET"])
+def download_letter_docx():
+    sid = session.get("sid")
+    data = get_active_data(sid)
+    if not data:
+        return "No cover letter data available", 404
 
-            if st.session_state.resume_preview_mode == "pdf":
-                pdf_bytes = resume_pdf_buf.getvalue()
-                base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=1" width="100%" height="750" style="border: 1px solid #d2d2d7; border-radius: 12px; margin-top: 10px;" type="application/pdf"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
-            else:
-                p_info = data.get("personal_info", {})
-                contact_line = "  |  ".join([p for p in [p_info.get("phone"), p_info.get("email"), p_info.get("linkedin"), p_info.get("github"), p_info.get("portfolio")] if p])
+    name = data.get("personal_info", {}).get("name", "Candidate").replace(" ", "_")
+    company = data.get("ats_assessment", {}).get("target_company", "Company").replace(" ", "_")
+    filename = f"{name}_{company}_Letter.docx"
 
-                st.markdown('<div class="jakes-paper">', unsafe_allow_html=True)
-                st.markdown(f'<div class="jakes-name">{p_info.get("name", "Candidate")}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="jakes-contact">{contact_line}</div>', unsafe_allow_html=True)
+    buffer = create_application_letter_docx(data)
+    return send_file(
+        buffer,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        as_attachment=True,
+        download_name=filename
+    )
 
-                def render_html_edu():
-                    edu_list = data.get("education", [])
-                    if edu_list:
-                        st.markdown('<div class="jakes-section-title">Education</div>', unsafe_allow_html=True)
-                        for edu in edu_list:
-                            inst = edu.get("institution", "")
-                            loc = edu.get("location", "")
-                            deg = edu.get("degree", "")
-                            dates = edu.get("dates", "")
-                            gpa = edu.get("gpa", "")
-                            deg_str = deg + (f" (GPA: {gpa})" if gpa else "")
 
-                            st.markdown(f'''
-                            <div class="jakes-row">
-                                <span class="jakes-bold">{inst}</span>
-                                <span>{loc}</span>
-                            </div>
-                            <div class="jakes-row">
-                                <span class="jakes-italic">{deg_str}</span>
-                                <span class="jakes-italic">{dates}</span>
-                            </div>
-                            ''', unsafe_allow_html=True)
+@app.route("/download/letter/pdf", methods=["GET"])
+def download_letter_pdf():
+    sid = session.get("sid")
+    data = get_active_data(sid)
+    if not data:
+        return "No cover letter data available", 404
 
-                def render_html_exp():
-                    exp_list = data.get("experience", [])
-                    if exp_list:
-                        st.markdown('<div class="jakes-section-title">Experience</div>', unsafe_allow_html=True)
-                        for exp in exp_list:
-                            role = exp.get("role", "")
-                            comp = exp.get("company", "")
-                            loc = exp.get("location", "")
-                            dates = exp.get("dates", "")
+    name = data.get("personal_info", {}).get("name", "Candidate").replace(" ", "_")
+    company = data.get("ats_assessment", {}).get("target_company", "Company").replace(" ", "_")
+    filename = f"{name}_{company}_Letter.pdf"
 
-                            st.markdown(f'''
-                            <div class="jakes-row">
-                                <span class="jakes-bold">{role}</span>
-                                <span>{dates}</span>
-                            </div>
-                            <div class="jakes-row">
-                                <span class="jakes-italic">{comp}</span>
-                                <span class="jakes-italic">{loc}</span>
-                            </div>
-                            ''', unsafe_allow_html=True)
-                            bullets_html = "".join([f"<li>{b}</li>" for b in exp.get("bullets", [])])
-                            st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
+    buffer = create_application_letter_pdf(data)
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename
+    )
 
-                def render_html_proj():
-                    proj_list = data.get("projects", [])
-                    if proj_list:
-                        st.markdown('<div class="jakes-section-title">Projects</div>', unsafe_allow_html=True)
-                        for proj in proj_list:
-                            name = proj.get("title", proj.get("name", ""))
-                            tools = proj.get("tech_stack", proj.get("tools", ""))
-                            dates = proj.get("dates", "")
-                            tools_str = f" | {tools}" if tools else ""
 
-                            st.markdown(f'''
-                            <div class="jakes-row">
-                                <span><span class="jakes-bold">{name}</span><span class="jakes-italic">{tools_str}</span></span>
-                                <span class="jakes-italic">{dates}</span>
-                            </div>
-                            ''', unsafe_allow_html=True)
-                            bullets_html = "".join([f"<li>{b}</li>" for b in proj.get("bullets", [])])
-                            st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
-
-                def render_html_skills():
-                    skills_dict = data.get("skills", data.get("technical_skills", {}))
-                    if skills_dict:
-                        st.markdown('<div class="jakes-section-title">Technical Skills</div>', unsafe_allow_html=True)
-                        if isinstance(skills_dict, dict):
-                            for cat, items in skills_dict.items():
-                                items_str = ", ".join(items) if isinstance(items, list) else str(items)
-                                cat_clean = cat.replace("_", " ").title()
-                                st.markdown(f'<div style="font-size: 0.88rem; margin-bottom: 0.2rem;"><b>{cat_clean}:</b> {items_str}</div>', unsafe_allow_html=True)
-                        elif isinstance(skills_dict, list):
-                            st.markdown(f'<div style="font-size: 0.88rem; margin-bottom: 0.2rem;"><b>Skills:</b> {", ".join(skills_dict)}</div>', unsafe_allow_html=True)
-
-                if st.session_state.career_level == "experienced":
-                    render_html_exp()
-                    render_html_proj()
-                    render_html_skills()
-                    render_html_edu()
-                else:
-                    render_html_edu()
-                    render_html_exp()
-                    render_html_proj()
-                    render_html_skills()
-
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        # --- 2. ATS KEYWORD GAP & SKILLS MATRIX ---
-        with tab_kw:
-            matched_kws = assessment.get("key_matched_keywords", [])
-            missing_kws = assessment.get("missing_or_recommended_keywords", [])
-
-            total_kw = len(matched_kws) + len(missing_kws)
-            coverage = int((len(matched_kws) / total_kw) * 100) if total_kw > 0 else 85
-
-            st.markdown(f"""
-            <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 1.5rem; margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
-                    <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f;">Keyword Match & Gap Analysis</div>
-                    <div style="font-weight: 700; font-size: 1.1rem; color: #0071e3;">{coverage}% Coverage</div>
-                </div>
-                <div style="width: 100%; background: #e5e5ea; height: 8px; border-radius: 980px; overflow: hidden; margin-bottom: 1.25rem;">
-                    <div style="width: {coverage}%; background: #0071e3; height: 100%;"></div>
-                </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("**Matched Keywords in Resume**")
-            if matched_kws:
-                badges_m = "".join([f'<span class="kw-badge-matched">✓ {k}</span>' for k in matched_kws])
-                st.markdown(f'<div style="margin-bottom: 1.25rem;">{badges_m}</div>', unsafe_allow_html=True)
-            else:
-                st.caption("None detected.")
-
-            st.markdown("**Missing / High-Value Keywords in Job Description**")
-            if missing_kws:
-                badges_miss = "".join([f'<span class="kw-badge-missing">⚠️ {k}</span>' for k in missing_kws])
-                st.markdown(f'<div style="margin-bottom: 1rem;">{badges_miss}</div>', unsafe_allow_html=True)
-                st.caption("Tip: If you have truthful project or academic exposure to any missing skills, use the Bullet Tuner to incorporate them.")
-            else:
-                st.caption("Full keyword coverage achieved.")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # --- 3. INTERACTIVE BULLET TUNER ---
-        with tab_tune:
-            st.markdown("""
-            <div style="margin-bottom: 1rem;">
-                <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f; margin-bottom: 0.25rem;">Interactive Bullet Tuner</div>
-                <div style="font-size: 0.9rem; color: #86868b;">Select any bullet point to infuse metrics, deepen technical rigor, or sharpen brevity in real-time.</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Build list of all bullets
-            all_bullet_items = []
-            for exp_idx, exp in enumerate(data.get("experience", [])):
-                for b_idx, b in enumerate(exp.get("bullets", [])):
-                    all_bullet_items.append({
-                        "label": f"Experience: {exp.get('company', 'Work')} - Bullet {b_idx + 1}",
-                        "text": b,
-                        "type": "exp",
-                        "parent_idx": exp_idx,
-                        "bullet_idx": b_idx
-                    })
-
-            for proj_idx, proj in enumerate(data.get("projects", [])):
-                for b_idx, b in enumerate(proj.get("bullets", [])):
-                    all_bullet_items.append({
-                        "label": f"Project: {proj.get('title', proj.get('name', 'Project'))} - Bullet {b_idx + 1}",
-                        "text": b,
-                        "type": "proj",
-                        "parent_idx": proj_idx,
-                        "bullet_idx": b_idx
-                    })
-
-            if not all_bullet_items:
-                st.info("No bullet points available to tune.")
-            else:
-                bullet_labels = [item["label"] for item in all_bullet_items]
-                chosen_label = st.selectbox("Select Bullet to Tune", options=bullet_labels)
-                selected_item = next(item for item in all_bullet_items if item["label"] == chosen_label)
-
-                current_text = selected_item["text"]
-                st.text_area("Current Bullet", value=current_text, height=75, disabled=True)
-
-                t_c1, t_c2, t_c3 = st.columns(3)
-                tune_action = None
-                with t_c1:
-                    if st.button("⚡ Add Metrics & Data", use_container_width=True):
-                        tune_action = "add_metrics"
-                with t_c2:
-                    if st.button("🎯 Make More Technical", use_container_width=True):
-                        tune_action = "more_technical"
-                with t_c3:
-                    if st.button("✂️ Make More Concise", use_container_width=True):
-                        tune_action = "more_concise"
-
-                if tune_action:
-                    with st.spinner("Polishing bullet point..."):
-                        try:
-                            tuned = tune_bullet(
-                                bullet_text=current_text,
-                                mode=tune_action,
-                                target_role=target_r
-                            )
-                            # Update in session state data
-                            p_idx = selected_item["parent_idx"]
-                            b_idx = selected_item["bullet_idx"]
-                            if selected_item["type"] == "exp":
-                                st.session_state.tailored_data["experience"][p_idx]["bullets"][b_idx] = tuned
-                            else:
-                                st.session_state.tailored_data["projects"][p_idx]["bullets"][b_idx] = tuned
-
-                            # Update in active saved app
-                            if st.session_state.active_saved_id:
-                                save_application(
-                                    company_name=target_comp,
-                                    role_title=target_r,
-                                    location=rep_loc,
-                                    match_score=score,
-                                    data=st.session_state.tailored_data,
-                                    status="Draft",
-                                    career_level=st.session_state.career_level
-                                )
-                            st.toast("Bullet updated successfully!", icon="✓")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error tuning bullet: {e}")
-
-            # Bullet transformations diff list
-            st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
-            st.markdown("**Original vs Tailored Transformations**")
-            transforms = data.get("bullet_transformations", [])
-            if transforms:
-                for tf in transforms:
-                    st.markdown(f"""
-                    <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem;">
-                        <div style="font-weight: 600; color: #1d1d1f; font-size: 0.9rem; margin-bottom: 0.35rem;">{tf.get('context', 'Experience')}</div>
-                        <div style="color: #ff3b30; font-size: 0.86rem; margin-bottom: 0.3rem;"><b>Before:</b> {tf.get('original_bullet', '')}</div>
-                        <div style="color: #34c759; font-size: 0.86rem; margin-bottom: 0.3rem;"><b>After:</b> {tf.get('elevated_bullet', '')}</div>
-                        <div style="color: #86868b; font-size: 0.78rem;"><b>Impact:</b> {tf.get('impact_enhancement', '')}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        # --- 4. RECRUITER OUTREACH SUITE ---
-        with tab_outreach:
-            outreach = data.get("recruiter_outreach", {})
-            st.markdown("""
-            <div style="margin-bottom: 1rem;">
-                <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f; margin-bottom: 0.25rem;">Recruiter Outreach Suite</div>
-                <div style="font-size: 0.9rem; color: #86868b;">Direct messaging templates for LinkedIn and email designed to bypass recruiter inboxes.</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # LinkedIn Note
-            li_note = outreach.get("linkedin_connection_note", f"Hi [Name], I noticed your work on the engineering team at {target_comp}. Having worked extensively with modern tech stacks, I'd love to connect and follow your team's journey.")
-            char_len = len(li_note)
-            st.markdown(f"**LinkedIn Connection Request Note** <span style='color: #86868b; font-size: 0.82rem;'>({char_len}/300 characters)</span>", unsafe_allow_html=True)
-            st.text_area("LinkedIn Connection Note", value=li_note, height=80, key="ta_li_note", label_visibility="collapsed")
-
-            # Cold Email
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-            st.markdown("**Cold Email to Hiring Manager**")
-            em_subj = outreach.get("cold_email_subject", f"{target_r} Candidate - {data.get('personal_info', {}).get('name', 'Candidate')}")
-            em_body = outreach.get("cold_email_body", "Hi [Hiring Manager],\n\nI recently came across the role at [Company]...")
-            st.text_input("Email Subject Line", value=em_subj)
-            st.text_area("Email Body", value=em_body, height=160)
-
-            # Thank You Note
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-            st.markdown("**Post-Interview Thank You Note**")
-            ty_note = outreach.get("thank_you_note", "Hi [Interviewer],\n\nThank you for the conversation today...")
-            st.text_area("Thank You Note", value=ty_note, height=130)
-
-        # --- 5. COVER LETTER ---
-        with tab_let:
-            let_data = data.get("application_letter", {})
-            st.markdown('<div class="letter-paper">', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 0.8rem;">{let_data.get("date", "Current Date")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;"><b>To:</b> Hiring Team, {target_comp}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("greeting", "Dear Hiring Team,")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("opening_hook", let_data.get("opening", ""))}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("why_company", let_data.get("body_paragraph_1", ""))}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("student_value_add", let_data.get("body_paragraph_2", ""))}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1.5rem;">{let_data.get("closing_and_call_to_action", let_data.get("closing", ""))}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem;">{let_data.get("sign_off", "Sincerely,")}<br><b>{data.get("personal_info", {}).get("name", "Candidate")}</b></div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # --- 6. INTERVIEW PREP ---
-        with tab_q:
-            interview_data = data.get("interview_prep", {})
-            tech_q = interview_data.get("technical_questions", [])
-            behav_q = interview_data.get("behavioral_questions", [])
-
-            st.markdown("**Technical Scenarios**")
-            for t in tech_q:
-                st.markdown(f"""
-                <div style="background: #f5f5f7; border-left: 3px solid #0071e3; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 0.65rem;">
-                    <div style="font-weight: 600; color: #1d1d1f; font-size: 0.92rem;">{t.get('question', '')}</div>
-                    <div style="color: #86868b; font-size: 0.84rem; margin-top: 0.3rem;"><b>Strategy:</b> {t.get('answer_strategy', '')}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-            st.markdown("**Behavioral Scenarios**")
-            for b in behav_q:
-                st.markdown(f"""
-                <div style="background: #f5f5f7; border-left: 3px solid #34c759; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 0.65rem;">
-                    <div style="font-weight: 600; color: #1d1d1f; font-size: 0.92rem;">{b.get('question', '')}</div>
-                    <div style="color: #86868b; font-size: 0.84rem; margin-top: 0.3rem;"><b>Strategy:</b> {b.get('answer_strategy', '')}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # --- 7. LINKEDIN SUITE ---
-        with tab_li:
-            li_suite = data.get("linkedin_suite", {})
-            st.text_input("LinkedIn Headline", value=li_suite.get("headline", ""))
-            st.text_area("LinkedIn About", value=li_suite.get("about_summary", ""), height=120)
-
-        st.markdown("</div>", unsafe_allow_html=True)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    print(f"Starting Flask server on http://localhost:{port}...")
+    app.run(host="0.0.0.0", port=port, debug=True)

@@ -121,3 +121,4 @@ def delete_application(app_id: int):
     cursor.execute("DELETE FROM applications WHERE id = ?", (app_id,))
     conn.commit()
     conn.close()
+
