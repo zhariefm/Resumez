@@ -187,6 +187,7 @@ Respond strictly in valid JSON matching this schema:
 def recommend_companies_for_student(
     resume_text: str,
     target_location: str = "Any",
+    target_role: str = "",
     api_key: str = None,
     model: str = "gpt-4o-mini"
 ) -> list:
@@ -200,13 +201,15 @@ def recommend_companies_for_student(
 
     client = OpenAI(api_key=key.strip())
 
+    role_line = f"DESIRED ROLE / FOCUS: {target_role}\n" if target_role else ""
+
     user_prompt = f"""
 TARGET LOCATION PREFERENCE: {target_location or 'Any location / Remote'}
-
+{role_line}
 --- STUDENT RESUME PROFILE ---
 {resume_text}
 
-Recommend 4-5 best-fit companies and roles for this student with official website URLs, accurate headquarters and tech hubs, and full job descriptions.
+Recommend 4-5 best-fit companies and roles for this candidate with official website URLs, accurate headquarters and tech hubs, and full job descriptions.
 """
 
     response = client.chat.completions.create(
@@ -234,6 +237,7 @@ def tailor_resume_and_letter(
     role_title: str = "",
     location: str = "",
     career_level: str = "student",
+    user_details: dict = None,
     api_key: str = None,
     model: str = "gpt-4o-mini"
 ) -> dict:
@@ -248,6 +252,20 @@ def tailor_resume_and_letter(
 
     client = OpenAI(api_key=key.strip())
 
+    details = user_details or {}
+    contact_instruction = ""
+    if details:
+        parts = []
+        if details.get("name"): parts.append(f"Full Name: {details['name']}")
+        if details.get("email"): parts.append(f"Email: {details['email']}")
+        if details.get("phone"): parts.append(f"Phone: {details['phone']}")
+        if details.get("linkedin"): parts.append(f"LinkedIn: {details['linkedin']}")
+        if details.get("github"): parts.append(f"GitHub: {details['github']}")
+        if details.get("portfolio"): parts.append(f"Portfolio: {details['portfolio']}")
+        if details.get("target_role"): parts.append(f"Preferred Target Role: {details['target_role']}")
+        if parts:
+            contact_instruction = "EXACT CANDIDATE CONTACT DETAILS (Use these exact values in personal_info):\n" + "\n".join(parts) + "\n"
+
     level_instruction = (
         "CANDIDATE STAGE: Student / New Grad. Prioritize Education, coursework, academic achievements, and foundational projects."
         if career_level == "student"
@@ -256,10 +274,10 @@ def tailor_resume_and_letter(
 
     user_prompt = f"""
 TARGET COMPANY: {company_name or 'Target Employer'}
-TARGET ROLE: {role_title or 'Target Role'}
+TARGET ROLE: {role_title or details.get('target_role') or 'Target Role'}
 TARGET LOCATION: {location or 'Not specified'}
 {level_instruction}
-
+{contact_instruction}
 --- TARGET JOB DESCRIPTION ---
 {job_description}
 
@@ -283,6 +301,16 @@ Generate the complete enterprise application suite (Jake's Resume, Application L
     try:
         data = json.loads(raw_content)
         data["career_level"] = career_level
+
+        # Guarantee user contact overrides if provided
+        p = data.setdefault("personal_info", {})
+        if details.get("name"): p["name"] = details["name"]
+        if details.get("email"): p["email"] = details["email"]
+        if details.get("phone"): p["phone"] = details["phone"]
+        if details.get("linkedin"): p["linkedin"] = details["linkedin"]
+        if details.get("github"): p["github"] = details["github"]
+        if details.get("portfolio"): p["portfolio"] = details["portfolio"]
+
         return data
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse GPT response as JSON: {e}\nRaw output: {raw_content[:300]}")

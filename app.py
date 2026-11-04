@@ -62,6 +62,7 @@ def api_recommend_companies():
     data = request.get_json() or {}
     resume_text = data.get("resume_text", "").strip()
     target_location = data.get("target_location", "Any")
+    target_role = data.get("target_role", "").strip()
 
     if not resume_text:
         return jsonify({"error": "Resume text is required"}), 400
@@ -69,7 +70,8 @@ def api_recommend_companies():
     try:
         recs = recommend_companies_for_student(
             resume_text=resume_text,
-            target_location=target_location
+            target_location=target_location,
+            target_role=target_role
         )
         return jsonify({"recommendations": recs})
     except Exception as e:
@@ -85,6 +87,7 @@ def api_tailor():
     role_title = data.get("role_title", "").strip()
     location = data.get("location", "").strip()
     career_level = data.get("career_level", "student")
+    user_details = data.get("user_details", {})
 
     if not resume_text or not job_description:
         return jsonify({"error": "Both resume profile and job description are required"}), 400
@@ -96,7 +99,8 @@ def api_tailor():
             company_name=company_name,
             role_title=role_title,
             location=location,
-            career_level=career_level
+            career_level=career_level,
+            user_details=user_details
         )
 
         # Save to SQLite Tracker

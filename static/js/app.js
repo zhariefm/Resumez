@@ -285,6 +285,17 @@ function initFileUpload() {
   });
 }
 
+function getUserDetails() {
+  return {
+    name: document.getElementById("user-name")?.value.trim() || "",
+    target_role: document.getElementById("user-target-role")?.value.trim() || "",
+    email: document.getElementById("user-email")?.value.trim() || "",
+    phone: document.getElementById("user-phone")?.value.trim() || "",
+    linkedin: document.getElementById("user-linkedin")?.value.trim() || "",
+    github: document.getElementById("user-github")?.value.trim() || ""
+  };
+}
+
 async function handleFileUpload(file) {
   const formData = new FormData();
   formData.append("resume_file", file);
@@ -300,7 +311,26 @@ async function handleFileUpload(file) {
     } else {
       state.resumeText = data.text;
       document.getElementById("resume-text").value = data.text;
-      showToast("Resume parsed successfully.");
+
+      // Smart pre-fill detected contact details if fields are currently empty
+      const emailMatch = data.text.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+      if (emailMatch && !document.getElementById("user-email").value) {
+        document.getElementById("user-email").value = emailMatch[0];
+      }
+      const phoneMatch = data.text.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+      if (phoneMatch && !document.getElementById("user-phone").value) {
+        document.getElementById("user-phone").value = phoneMatch[0];
+      }
+      const liMatch = data.text.match(/(linkedin\.com\/in\/[\w-]+)/i);
+      if (liMatch && !document.getElementById("user-linkedin").value) {
+        document.getElementById("user-linkedin").value = liMatch[0];
+      }
+      const ghMatch = data.text.match(/(github\.com\/[\w-]+)/i);
+      if (ghMatch && !document.getElementById("user-github").value) {
+        document.getElementById("user-github").value = ghMatch[0];
+      }
+
+      showToast("Resume parsed & details extracted.");
     }
   } catch (err) {
     hideSpinner();
@@ -316,6 +346,7 @@ async function continueToCompanies() {
     return;
   }
   state.resumeText = text;
+  const userDetails = getUserDetails();
 
   if (state.recommendedCompanies.length === 0) {
     showSpinner("Finding matching companies for your profile...");
@@ -325,7 +356,8 @@ async function continueToCompanies() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resume_text: state.resumeText,
-          target_location: state.targetLocation
+          target_location: state.targetLocation,
+          target_role: userDetails.target_role
         })
       });
       const data = await res.json();
@@ -416,6 +448,7 @@ async function tailorCustomRole() {
 
 async function runTailoring(payload) {
   showSpinner(`Tailoring resume & letter for ${payload.company_name}...`);
+  const userDetails = getUserDetails();
   try {
     const res = await fetch("/api/tailor", {
       method: "POST",
@@ -423,6 +456,7 @@ async function runTailoring(payload) {
       body: JSON.stringify({
         resume_text: state.resumeText,
         career_level: state.careerLevel,
+        user_details: userDetails,
         ...payload
       })
     });
@@ -831,6 +865,13 @@ async function loadSavedApp(appId) {
     state.activeSavedId = data.id;
     state.careerLevel = data.career_level || "student";
     state.targetLocation = data.location || state.targetLocation;
+
+    const p = data.data?.personal_info || {};
+    if (p.name && document.getElementById("user-name")) document.getElementById("user-name").value = p.name;
+    if (p.email && document.getElementById("user-email")) document.getElementById("user-email").value = p.email;
+    if (p.phone && document.getElementById("user-phone")) document.getElementById("user-phone").value = p.phone;
+    if (p.linkedin && document.getElementById("user-linkedin")) document.getElementById("user-linkedin").value = p.linkedin;
+    if (p.github && document.getElementById("user-github")) document.getElementById("user-github").value = p.github;
 
     closeApplicationsModal();
     renderStep3();
