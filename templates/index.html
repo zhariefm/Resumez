@@ -4,395 +4,342 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resumez</title>
-  <!-- Apple typography & Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/static/css/apple.css">
 </head>
 <body>
 
-  <div class="app-container">
-    <!-- Top Minimal Apple Header -->
+  <div class="app-wrapper">
+    <!-- Header -->
     <header class="apple-header">
-      <div class="apple-brand">Resumez</div>
-      <div class="apple-nav-track">
-        <button class="apple-nav-pill active" data-step="1">1. Profile</button>
-        <button class="apple-nav-pill" data-step="2">2. Company</button>
-        <button class="apple-nav-pill" data-step="3">3. Tailor</button>
+      <div class="apple-logo">Resumez</div>
+      <div class="apple-segmented-nav">
+        <button class="nav-pill active" data-step="1">1. Profile</button>
+        <button class="nav-pill" data-step="2">2. Company</button>
+        <button class="nav-pill" data-step="3">3. Tailor</button>
       </div>
       <div>
-        <button class="btn-header-apps" id="btn-open-apps">📁 Applications (0)</button>
+        <button class="header-action-btn" id="btn-open-apps">Applications (0)</button>
       </div>
     </header>
 
-    <!-- ========================================================================= -->
     <!-- STEP 1: PROFILE & LOCATION -->
-    <!-- ========================================================================= -->
-    <main id="step-1" class="step-view apple-card">
-      <h1 class="apple-title">Profile & Location</h1>
-      <p class="apple-subtitle">Select your career phase, upload your resume, and choose your target hiring market.</p>
+    <main id="step-1" class="step-view apple-box">
+      <!-- Career Switcher -->
+      <div class="segmented-bar">
+        <button type="button" class="segment-btn active" data-career="student">Student</button>
+        <button type="button" class="segment-btn" data-career="experienced">Professional</button>
+      </div>
 
-      <!-- Career Stage Segmented Switch -->
-      <div class="form-group">
-        <label class="form-label">Career Stage</label>
-        <div class="segmented-control">
-          <button type="button" class="segmented-pill active" data-career="student">Student / New Grad</button>
-          <button type="button" class="segmented-pill" data-career="experienced">Experienced Professional</button>
+      <!-- Contact Info -->
+      <div class="row-2">
+        <div class="field">
+          <label class="field-label" for="user-name">Full Name</label>
+          <input type="text" id="user-name" class="text-input" placeholder="e.g. Mohamad Zharief">
+        </div>
+        <div class="field">
+          <label class="field-label" for="user-target-role">Target Role</label>
+          <input type="text" id="user-target-role" class="text-input" placeholder="e.g. Software Engineer">
         </div>
       </div>
 
-      <!-- Candidate Contact & Target Details -->
-      <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 1.35rem 1.5rem; margin-bottom: 1.35rem;">
-        <div style="font-weight: 600; font-size: 0.96rem; margin-bottom: 0.85rem; color: #1d1d1f;">Candidate Details</div>
-        <div class="grid-2" style="margin-bottom: 0.85rem;">
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">Full Name</label>
-            <input type="text" id="user-name" class="apple-input" placeholder="e.g. Mohamad Zharief">
-          </div>
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">Target Role / Focus</label>
-            <input type="text" id="user-target-role" class="apple-input" placeholder="e.g. Software Engineer, Backend, AI/ML">
-          </div>
+      <div class="row-2">
+        <div class="field">
+          <label class="field-label" for="user-email">Email</label>
+          <input type="email" id="user-email" class="text-input" placeholder="name@example.com">
         </div>
-        <div class="grid-2" style="margin-bottom: 0.85rem;">
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">Email Address</label>
-            <input type="email" id="user-email" class="apple-input" placeholder="e.g. zharief@example.com">
-          </div>
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">Phone Number</label>
-            <input type="tel" id="user-phone" class="apple-input" placeholder="e.g. +1 (555) 0192">
-          </div>
-        </div>
-        <div class="grid-2">
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">LinkedIn Profile</label>
-            <input type="text" id="user-linkedin" class="apple-input" placeholder="e.g. linkedin.com/in/username">
-          </div>
-          <div>
-            <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 4px;">GitHub / Portfolio URL</label>
-            <input type="text" id="user-github" class="apple-input" placeholder="e.g. github.com/username">
-          </div>
+        <div class="field">
+          <label class="field-label" for="user-phone">Phone</label>
+          <input type="tel" id="user-phone" class="text-input" placeholder="+1 555-0192">
         </div>
       </div>
 
-      <!-- File Uploader Dropzone -->
-      <div class="form-group">
-        <label class="form-label">Upload Resume</label>
-        <div class="dropzone" id="dropzone">
-          <div class="dropzone-label">Drop your resume here (PDF, DOCX, TXT) or click to browse</div>
-          <div class="dropzone-hint">Extracted automatically into plain text</div>
+      <div class="row-2">
+        <div class="field">
+          <label class="field-label" for="user-linkedin">LinkedIn</label>
+          <input type="text" id="user-linkedin" class="text-input" placeholder="linkedin.com/in/username">
+        </div>
+        <div class="field">
+          <label class="field-label" for="user-github">GitHub / Portfolio</label>
+          <input type="text" id="user-github" class="text-input" placeholder="github.com/username">
+        </div>
+      </div>
+
+      <!-- Resume Upload & Text -->
+      <div class="field">
+        <label class="field-label">Resume</label>
+        <div class="upload-zone" id="dropzone">
+          <div class="upload-text">Upload PDF, DOCX, or TXT</div>
+          <div class="upload-sub">Auto-extracts background and contact details</div>
           <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" style="display: none;">
         </div>
+        <textarea id="resume-text" class="area-input" placeholder="Or paste background, experience, projects, and skills..."></textarea>
       </div>
 
-      <!-- Resume Text Area -->
-      <div class="form-group">
-        <label class="form-label" for="resume-text">Resume Details & Background</label>
-        <textarea id="resume-text" class="apple-textarea" placeholder="Or paste your experience, projects, technical skills, and coursework here..."></textarea>
-      </div>
-
-      <!-- Location Section -->
-      <div class="form-group">
-        <label class="form-label">Target Location</label>
-        <div class="grid-2">
+      <!-- Location & Map -->
+      <div class="field">
+        <label class="field-label">Target Location</label>
+        <div class="row-2">
           <div>
-            <div style="margin-bottom: 0.65rem;">
-              <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 3px;">Search or Enter Any Location</label>
-              <div style="display: flex; gap: 0.4rem;">
-                <input type="text" id="custom-location-input" class="apple-input" placeholder="e.g. Zurich, Switzerland or Austin, TX">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-search-location">Find</button>
-              </div>
+            <div style="display: flex; gap: 0.35rem; margin-bottom: 0.5rem;">
+              <input type="text" id="custom-location-input" class="text-input" placeholder="Search city or region...">
+              <button type="button" class="action-btn action-btn-secondary action-btn-sm" id="btn-search-location">Find</button>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem;">
-              <span style="font-size: 0.74rem; color: #86868b; text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">or choose major tech hub</span>
+            <div class="row-2" style="gap: 0.35rem; margin-bottom: 0.35rem;">
+              <select id="select-country" class="select-input"></select>
+              <select id="select-hub" class="select-input"></select>
             </div>
-            <div class="grid-2" style="margin-bottom: 0.5rem; gap: 0.5rem;">
-              <div>
-                <select id="select-country" class="apple-select" style="font-size: 0.86rem; padding: 0.5rem 0.65rem;"></select>
-              </div>
-              <div>
-                <select id="select-hub" class="apple-select" style="font-size: 0.86rem; padding: 0.5rem 0.65rem;"></select>
-              </div>
-            </div>
-            <div style="font-size: 0.82rem; color: #86868b; margin-top: 0.4rem;">
-              Active location: <strong id="active-location-display" style="color: #1d1d1f;">San Francisco Bay Area, CA, United States</strong>
-            </div>
-            <div style="font-size: 0.76rem; color: #a1a1a6; margin-top: 2px;">
-              Tip: You can also click directly anywhere on the map to set your location.
+            <div style="font-size: 0.82rem; color: #86868b; margin-top: 0.35rem;">
+              Location: <strong id="active-location-display" style="color: #1d1d1f;">San Francisco Bay Area, CA, United States</strong>
             </div>
           </div>
           <div>
-            <div id="leaflet-map" style="width: 100%; height: 200px; border-radius: 14px; border: 1px solid #d2d2d7; overflow: hidden; cursor: crosshair;"></div>
+            <div id="leaflet-map" style="width: 100%; height: 140px; border-radius: 12px; border: 1px solid #d2d2d7; cursor: crosshair;"></div>
           </div>
         </div>
       </div>
 
-      <div style="margin-top: 2rem; display: flex; justify-content: center;">
-        <button class="btn btn-primary" style="padding: 0.7rem 2.5rem; font-size: 0.96rem;" onclick="continueToCompanies()">Continue to Company Selection →</button>
+      <div style="margin-top: 1.5rem; text-align: center;">
+        <button class="action-btn action-btn-primary" style="padding: 0.65rem 2.5rem;" onclick="continueToCompanies()">Continue →</button>
       </div>
     </main>
 
 
-    <!-- ========================================================================= -->
     <!-- STEP 2: COMPANY SELECTION -->
-    <!-- ========================================================================= -->
-    <main id="step-2" class="step-view apple-card" style="display: none;">
-      <h1 class="apple-title">Target Company</h1>
-      <p class="apple-subtitle">Select an employer matching your profile or enter a custom job description.</p>
-
-      <button class="btn btn-secondary btn-sm" style="margin-bottom: 1.25rem;" onclick="goToStep(1)">← Back to Profile</button>
-
-      <!-- Tabs: Recommended vs Custom -->
-      <div class="apple-tab-bar">
-        <button class="apple-tab tab-s2 active" id="tab-s2-recommended" onclick="switchStep2Tab('recommended')">Recommended Employers</button>
-        <button class="apple-tab tab-s2" id="tab-s2-custom" onclick="switchStep2Tab('custom')">Custom Role</button>
+    <main id="step-2" class="step-view apple-box" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <button class="action-btn action-btn-secondary action-btn-sm" onclick="goToStep(1)">← Back</button>
+        <div class="segmented-bar" style="margin-bottom: 0;">
+          <button class="segment-btn tab-s2 active" id="tab-s2-recommended" onclick="switchStep2Tab('recommended')">Suggestions</button>
+          <button class="segment-btn tab-s2" id="tab-s2-custom" onclick="switchStep2Tab('custom')">Custom Role</button>
+        </div>
       </div>
 
-      <!-- Tab 1: Recommended Employers List -->
+      <!-- Recommended List -->
       <div id="content-s2-recommended" class="tab-content-s2 active">
         <div id="recommended-list"></div>
       </div>
 
-      <!-- Tab 2: Custom Role Form -->
+      <!-- Custom Role -->
       <div id="content-s2-custom" class="tab-content-s2" style="display: none;">
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label">Company Name</label>
-            <input type="text" id="custom-company" class="apple-input" placeholder="e.g. Apple, Stripe">
+        <div class="row-2">
+          <div class="field">
+            <label class="field-label" for="custom-company">Company</label>
+            <input type="text" id="custom-company" class="text-input" placeholder="e.g. Apple">
           </div>
-          <div class="form-group">
-            <label class="form-label">Role Title</label>
-            <input type="text" id="custom-role" class="apple-input" placeholder="e.g. Software Engineer">
+          <div class="field">
+            <label class="field-label" for="custom-role">Role</label>
+            <input type="text" id="custom-role" class="text-input" placeholder="e.g. Software Engineer">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Job Description</label>
-          <textarea id="custom-jd" class="apple-textarea" placeholder="Paste the role requirements and qualifications here..."></textarea>
+        <div class="field">
+          <label class="field-label" for="custom-jd">Job Description</label>
+          <textarea id="custom-jd" class="area-input" style="min-height: 160px;" placeholder="Paste role requirements here..."></textarea>
         </div>
-        <button class="btn btn-primary btn-block" onclick="tailorCustomRole()">Tailor Resume →</button>
+        <button class="action-btn action-btn-primary action-btn-block" onclick="tailorCustomRole()">Tailor Resume →</button>
       </div>
     </main>
 
 
-    <!-- ========================================================================= -->
     <!-- STEP 3: REVIEW & EXPORT -->
-    <!-- ========================================================================= -->
-    <main id="step-3" class="step-view apple-card" style="display: none;">
-      <h1 class="apple-title" id="s3-company-name">Application</h1>
-      <p class="apple-subtitle" id="s3-role-loc">Role &bull; Location</p>
-
-      <!-- Navigation & Status Bar -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
-        <button class="btn btn-secondary btn-sm" onclick="goToStep(2)">← Change Company</button>
+    <main id="step-3" class="step-view apple-box" style="display: none;">
+      <!-- Title & Controls -->
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h1 class="box-title" id="s3-company-name" style="margin-bottom: 0.15rem;">Application</h1>
+          <div id="s3-role-loc" style="color: #86868b; font-size: 0.9rem;">Role &bull; Location</div>
+        </div>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span style="font-size: 0.84rem; color: #86868b; font-weight: 500;">Pipeline Status:</span>
-          <select id="s3-status-select" class="apple-select" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.84rem;" onchange="updateActiveStatus(this.value)">
+          <select id="s3-status-select" class="select-input" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.82rem;" onchange="updateActiveStatus(this.value)">
             <option value="Draft">Draft</option>
             <option value="Applied">Applied</option>
             <option value="Interviewing">Interviewing</option>
             <option value="Offer">Offer</option>
             <option value="Archived">Archived</option>
           </select>
+          <button class="action-btn action-btn-secondary action-btn-sm" onclick="goToStep(2)">Change Company</button>
+          <button class="action-btn action-btn-secondary action-btn-sm" onclick="goToStep(1)">New Resume</button>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="goToStep(1)">Start Over</button>
       </div>
 
       <!-- 5 Metric Cards -->
-      <div class="grid-5" style="margin-bottom: 1.5rem;">
-        <div class="metric-card highlight">
-          <div class="metric-label">Match Score</div>
-          <div class="metric-val" id="metric-match">--%</div>
+      <div class="row-5" style="margin-top: 1.25rem; margin-bottom: 1.25rem;">
+        <div class="metric-box active">
+          <div class="metric-title">Match</div>
+          <div class="metric-number" id="metric-match">--%</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Skills</div>
-          <div class="metric-val" id="metric-skills">--%</div>
+        <div class="metric-box">
+          <div class="metric-title">Skills</div>
+          <div class="metric-number" id="metric-skills">--%</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Impact</div>
-          <div class="metric-val" id="metric-impact">--%</div>
+        <div class="metric-box">
+          <div class="metric-title">Impact</div>
+          <div class="metric-number" id="metric-impact">--%</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Format</div>
-          <div class="metric-val" id="metric-format">--%</div>
+        <div class="metric-box">
+          <div class="metric-title">Format</div>
+          <div class="metric-number" id="metric-format">--%</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Length</div>
-          <div class="metric-val" id="metric-length">--%</div>
-        </div>
-      </div>
-
-      <!-- Download Actions -->
-      <div class="grid-2" style="margin-bottom: 1.75rem;">
-        <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 14px; padding: 1.25rem;">
-          <div style="font-weight: 600; font-size: 0.94rem; margin-bottom: 0.65rem;">Resume (Jake's Clean ATS Format)</div>
-          <div style="display: flex; gap: 0.5rem;">
-            <a href="/download/resume/docx" class="btn btn-primary" style="flex: 1;">Download DOCX</a>
-            <a href="/download/resume/pdf" class="btn btn-secondary" style="flex: 1;">Download PDF</a>
-          </div>
-        </div>
-        <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 14px; padding: 1.25rem;">
-          <div style="font-weight: 600; font-size: 0.94rem; margin-bottom: 0.65rem;">Cover Letter</div>
-          <div style="display: flex; gap: 0.5rem;">
-            <a href="/download/letter/docx" class="btn btn-primary" style="flex: 1;">Download DOCX</a>
-            <a href="/download/letter/pdf" class="btn btn-secondary" style="flex: 1;">Download PDF</a>
-          </div>
+        <div class="metric-box">
+          <div class="metric-title">Brevity</div>
+          <div class="metric-number" id="metric-length">--%</div>
         </div>
       </div>
 
-      <!-- Tab Navigation -->
-      <div class="apple-tab-bar">
-        <button class="apple-tab apple-tab-s3 active" id="tab-s3-resume" onclick="switchStep3Tab('resume')">Resume Preview</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-keywords" onclick="switchStep3Tab('keywords')">Keyword Matrix</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-tuner" onclick="switchStep3Tab('tuner')">Bullet Tuner</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-outreach" onclick="switchStep3Tab('outreach')">Outreach Suite</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-letter" onclick="switchStep3Tab('letter')">Cover Letter</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-interview" onclick="switchStep3Tab('interview')">Interview Prep</button>
-        <button class="apple-tab apple-tab-s3" id="tab-s3-linkedin" onclick="switchStep3Tab('linkedin')">LinkedIn</button>
-      </div>
-
-      <!-- Tab 1: Resume Preview (Live Vector PDF & Pure Paper View) -->
-      <div id="content-s3-resume" class="tab-content-s3 active">
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
-          <div class="segmented-control" style="margin-bottom: 0;">
-            <button class="segmented-pill active" id="btn-preview-pdf" onclick="setPreviewMode('pdf')">Live PDF Document</button>
-            <button class="segmented-pill" id="btn-preview-paper" onclick="setPreviewMode('paper')">Clean Text View</button>
+      <!-- Download Action Row -->
+      <div class="row-2" style="margin-bottom: 1.35rem;">
+        <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 12px; padding: 0.85rem 1rem;">
+          <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #86868b; margin-bottom: 0.4rem;">ATS Resume</div>
+          <div style="display: flex; gap: 0.4rem;">
+            <a href="/download/resume/docx" class="action-btn action-btn-primary action-btn-sm" style="flex: 1;">DOCX</a>
+            <a href="/download/resume/pdf" class="action-btn action-btn-secondary action-btn-sm" style="flex: 1;">PDF</a>
           </div>
         </div>
-        <iframe id="resume-pdf-frame" style="width: 100%; height: 740px; border: 1px solid #d2d2d7; border-radius: 12px; background: #ffffff;"></iframe>
-        <div id="resume-paper-view" class="jakes-paper" style="display: none;"></div>
+        <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 12px; padding: 0.85rem 1rem;">
+          <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #86868b; margin-bottom: 0.4rem;">Cover Letter</div>
+          <div style="display: flex; gap: 0.4rem;">
+            <a href="/download/letter/docx" class="action-btn action-btn-primary action-btn-sm" style="flex: 1;">DOCX</a>
+            <a href="/download/letter/pdf" class="action-btn action-btn-secondary action-btn-sm" style="flex: 1;">PDF</a>
+          </div>
+        </div>
       </div>
 
-      <!-- Tab 2: Keyword Matrix -->
-      <div id="content-s3-keywords" class="tab-content-s3" style="display: none;">
-        <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.65rem;">
-            <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f;">Keyword Match & Gap Analysis</div>
-            <div style="font-weight: 700; font-size: 1.1rem; color: #0071e3;" id="kw-coverage-num">88%</div>
+      <!-- Tabs Navigation -->
+      <div class="tabs-track">
+        <button class="tab-pill tab-s3 active" id="tab-s3-resume" onclick="switchStep3Tab('resume')">Resume</button>
+        <button class="tab-pill tab-s3" id="tab-s3-keywords" onclick="switchStep3Tab('keywords')">Keywords</button>
+        <button class="tab-pill tab-s3" id="tab-s3-tuner" onclick="switchStep3Tab('tuner')">Bullet Tuner</button>
+        <button class="tab-pill tab-s3" id="tab-s3-outreach" onclick="switchStep3Tab('outreach')">Outreach</button>
+        <button class="tab-pill tab-s3" id="tab-s3-letter" onclick="switchStep3Tab('letter')">Letter</button>
+        <button class="tab-pill tab-s3" id="tab-s3-interview" onclick="switchStep3Tab('interview')">Interview</button>
+        <button class="tab-pill tab-s3" id="tab-s3-linkedin" onclick="switchStep3Tab('linkedin')">LinkedIn</button>
+      </div>
+
+      <!-- Tab: Resume Preview -->
+      <div id="content-s3-resume" class="tab-pane tab-content-s3 active">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 0.4rem;">
+          <div class="segmented-bar" style="margin-bottom: 0;">
+            <button class="segment-btn active" id="btn-preview-pdf" onclick="setPreviewMode('pdf')">PDF</button>
+            <button class="segment-btn" id="btn-preview-paper" onclick="setPreviewMode('paper')">Text</button>
           </div>
-          <div style="width: 100%; background: #e5e5ea; height: 8px; border-radius: 980px; overflow: hidden; margin-bottom: 1.25rem;">
+        </div>
+        <iframe id="resume-pdf-frame" style="width: 100%; height: 700px; border: 1px solid #d2d2d7; border-radius: 10px; background: #ffffff;"></iframe>
+        <div id="resume-paper-view" class="paper-view" style="display: none;"></div>
+      </div>
+
+      <!-- Tab: Keywords -->
+      <div id="content-s3-keywords" class="tab-pane tab-content-s3" style="display: none;">
+        <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 12px; padding: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+            <div style="font-weight: 600; font-size: 0.92rem;">Coverage</div>
+            <div style="font-weight: 700; color: #0071e3;" id="kw-coverage-num">88%</div>
+          </div>
+          <div style="width: 100%; background: #e5e5ea; height: 6px; border-radius: 980px; overflow: hidden; margin-bottom: 1rem;">
             <div id="kw-coverage-bar" style="width: 88%; background: #0071e3; height: 100%;"></div>
           </div>
 
-          <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem;">Matched Keywords in Resume</div>
-          <div id="matched-keywords-container" style="margin-bottom: 1.25rem;"></div>
+          <div style="font-size: 0.76rem; font-weight: 600; color: #86868b; text-transform: uppercase; margin-bottom: 0.35rem;">Matched in Resume</div>
+          <div id="matched-keywords-container" style="margin-bottom: 1rem;"></div>
 
-          <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem;">Missing / Recommended Keywords</div>
-          <div id="missing-keywords-container" style="margin-bottom: 0.5rem;"></div>
-          <p style="font-size: 0.8rem; color: #86868b; margin-top: 0.5rem;">Tip: If you have exposure to missing skills, use the Bullet Tuner tab to incorporate them truthfully.</p>
+          <div style="font-size: 0.76rem; font-weight: 600; color: #86868b; text-transform: uppercase; margin-bottom: 0.35rem;">Missing from Job</div>
+          <div id="missing-keywords-container"></div>
         </div>
       </div>
 
-      <!-- Tab 3: Interactive Bullet Tuner -->
-      <div id="content-s3-tuner" class="tab-content-s3" style="display: none;">
-        <div style="margin-bottom: 1rem;">
-          <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.25rem;">Interactive Bullet Tuner</div>
-          <div style="font-size: 0.88rem; color: #86868b;">Select any bullet point to infuse metrics, deepen technical rigor, or shorten into a crisp one-liner.</div>
+      <!-- Tab: Bullet Tuner -->
+      <div id="content-s3-tuner" class="tab-pane tab-content-s3" style="display: none;">
+        <div class="field">
+          <label class="field-label">Select Bullet</label>
+          <select id="tuner-bullet-select" class="select-input"></select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Select Bullet</label>
-          <select id="tuner-bullet-select" class="apple-select"></select>
+        <div class="field">
+          <label class="field-label">Current Text</label>
+          <textarea id="tuner-current-bullet" class="area-input" style="min-height: 70px;" disabled></textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label">Current Bullet Text</label>
-          <textarea id="tuner-current-bullet" class="apple-textarea" style="min-height: 80px;" disabled></textarea>
-        </div>
-        <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;">
-          <button class="btn btn-secondary" onclick="tuneBulletAction('add_metrics')">⚡ Add Metrics & Data</button>
-          <button class="btn btn-secondary" onclick="tuneBulletAction('more_technical')">🎯 Make More Technical</button>
-          <button class="btn btn-secondary" onclick="tuneBulletAction('more_concise')">✂️ Make More Concise</button>
+        <div class="row-3">
+          <button class="action-btn action-btn-secondary" onclick="tuneBulletAction('add_metrics')">+ Metrics</button>
+          <button class="action-btn action-btn-secondary" onclick="tuneBulletAction('more_technical')">Technical</button>
+          <button class="action-btn action-btn-secondary" onclick="tuneBulletAction('more_concise')">Concise</button>
         </div>
       </div>
 
-      <!-- Tab 4: Recruiter Outreach Suite -->
-      <div id="content-s3-outreach" class="tab-content-s3" style="display: none;">
-        <div style="margin-bottom: 1rem;">
-          <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.25rem;">Recruiter Outreach Suite</div>
-          <div style="font-size: 0.88rem; color: #86868b;">Direct messaging templates for LinkedIn and email designed to bypass recruiter inboxes.</div>
-        </div>
-
-        <div class="apple-company-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <span style="font-weight: 600; font-size: 0.92rem;">LinkedIn Connection Note</span>
-            <span id="outreach-li-count" style="font-size: 0.8rem; color: #86868b;">0/300 characters</span>
+      <!-- Tab: Outreach -->
+      <div id="content-s3-outreach" class="tab-pane tab-content-s3" style="display: none;">
+        <div class="outreach-item">
+          <div class="outreach-header">
+            <span class="outreach-name">LinkedIn Note</span>
+            <span id="outreach-li-count" style="font-size: 0.78rem; color: #86868b;">0/300</span>
           </div>
-          <textarea id="outreach-li-note" class="apple-textarea" style="min-height: 80px;"></textarea>
-          <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="copyText('outreach-li-note')">Copy Note</button>
+          <textarea id="outreach-li-note" class="area-input" style="min-height: 70px;"></textarea>
+          <button class="action-btn action-btn-secondary action-btn-sm" style="margin-top: 0.4rem;" onclick="copyText('outreach-li-note')">Copy</button>
         </div>
 
-        <div class="apple-company-card">
-          <div style="font-weight: 600; font-size: 0.92rem; margin-bottom: 0.4rem;">Cold Email to Hiring Manager</div>
-          <input type="text" id="outreach-email-subject" class="apple-input" style="margin-bottom: 0.5rem;" placeholder="Subject line">
-          <textarea id="outreach-email-body" class="apple-textarea" style="min-height: 140px;"></textarea>
-          <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="copyText('outreach-email-body')">Copy Email Body</button>
+        <div class="outreach-item">
+          <div class="outreach-name" style="margin-bottom: 0.35rem;">Cold Email</div>
+          <input type="text" id="outreach-email-subject" class="text-input" style="margin-bottom: 0.4rem;" placeholder="Subject">
+          <textarea id="outreach-email-body" class="area-input" style="min-height: 120px;"></textarea>
+          <button class="action-btn action-btn-secondary action-btn-sm" style="margin-top: 0.4rem;" onclick="copyText('outreach-email-body')">Copy</button>
         </div>
 
-        <div class="apple-company-card">
-          <div style="font-weight: 600; font-size: 0.92rem; margin-bottom: 0.4rem;">Post-Interview Thank You Note</div>
-          <textarea id="outreach-thank-you" class="apple-textarea" style="min-height: 110px;"></textarea>
-          <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="copyText('outreach-thank-you')">Copy Note</button>
+        <div class="outreach-item">
+          <div class="outreach-name" style="margin-bottom: 0.35rem;">Thank You Note</div>
+          <textarea id="outreach-thank-you" class="area-input" style="min-height: 90px;"></textarea>
+          <button class="action-btn action-btn-secondary action-btn-sm" style="margin-top: 0.4rem;" onclick="copyText('outreach-thank-you')">Copy</button>
         </div>
       </div>
 
-      <!-- Tab 5: Cover Letter -->
-      <div id="content-s3-letter" class="tab-content-s3" style="display: none;">
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
-          <button class="btn btn-secondary btn-sm" onclick="copyText('cover-letter-view')">Copy Letter</button>
+      <!-- Tab: Cover Letter -->
+      <div id="content-s3-letter" class="tab-pane tab-content-s3" style="display: none;">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 0.4rem;">
+          <button class="action-btn action-btn-secondary action-btn-sm" onclick="copyText('cover-letter-view')">Copy</button>
         </div>
-        <div id="cover-letter-view" class="letter-paper"></div>
+        <div id="cover-letter-view" class="paper-view"></div>
       </div>
 
-      <!-- Tab 6: Interview Prep -->
-      <div id="content-s3-interview" class="tab-content-s3" style="display: none;">
-        <div style="font-weight: 600; font-size: 0.96rem; margin-bottom: 0.65rem;">Technical Scenarios</div>
-        <div id="tech-scenarios-container" style="margin-bottom: 1.5rem;"></div>
+      <!-- Tab: Interview -->
+      <div id="content-s3-interview" class="tab-pane tab-content-s3" style="display: none;">
+        <div class="field-label" style="margin-bottom: 0.4rem;">Technical</div>
+        <div id="tech-scenarios-container" style="margin-bottom: 1.25rem;"></div>
 
-        <div style="font-weight: 600; font-size: 0.96rem; margin-bottom: 0.65rem;">Behavioral Scenarios</div>
+        <div class="field-label" style="margin-bottom: 0.4rem;">Behavioral</div>
         <div id="behav-scenarios-container"></div>
       </div>
 
-      <!-- Tab 7: LinkedIn Suite -->
-      <div id="content-s3-linkedin" class="tab-content-s3" style="display: none;">
-        <div class="form-group">
-          <label class="form-label">LinkedIn Headline</label>
-          <input type="text" id="li-headline-input" class="apple-input">
+      <!-- Tab: LinkedIn -->
+      <div id="content-s3-linkedin" class="tab-pane tab-content-s3" style="display: none;">
+        <div class="field">
+          <label class="field-label">Headline</label>
+          <input type="text" id="li-headline-input" class="text-input">
         </div>
-        <div class="form-group">
-          <label class="form-label">LinkedIn About Summary</label>
-          <textarea id="li-about-input" class="apple-textarea" style="min-height: 120px;"></textarea>
+        <div class="field">
+          <label class="field-label">About</label>
+          <textarea id="li-about-input" class="area-input" style="min-height: 100px;"></textarea>
         </div>
       </div>
     </main>
 
-  </div><!-- .app-container -->
+  </div><!-- .app-wrapper -->
 
-
-  <!-- ========================================================================= -->
-  <!-- MODAL: SAVED APPLICATIONS -->
-  <!-- ========================================================================= -->
-  <div id="apps-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2 class="apple-title" style="font-size: 1.35rem; margin: 0;">Saved Applications</h2>
-        <button class="modal-close-btn" id="btn-close-modal">✕</button>
+  <!-- Modal: Saved Applications -->
+  <div id="apps-modal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-top">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Applications</h2>
+        <button class="close-x-btn" id="btn-close-modal">✕</button>
       </div>
       <div id="saved-apps-list"></div>
     </div>
   </div>
 
+  <!-- Toast & Loader -->
+  <div id="toast" class="toast-pill"></div>
 
-  <!-- ========================================================================= -->
-  <!-- TOAST & SPINNER OVERLAY -->
-  <!-- ========================================================================= -->
-  <div id="toast" class="toast-msg"></div>
-
-  <div id="spinner-overlay" class="spinner-overlay">
-    <div class="apple-spinner"></div>
-    <div id="spinner-text" style="font-size: 0.96rem; font-weight: 600; color: #1d1d1f;">Processing...</div>
+  <div id="spinner-overlay" class="loader-screen">
+    <div class="loader-ring"></div>
+    <div id="spinner-text" style="font-size: 0.92rem; font-weight: 500; color: #1d1d1f;">Processing...</div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>
-
