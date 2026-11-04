@@ -147,93 +147,105 @@ def create_jakes_resume_pdf(resume_data: dict) -> io.BytesIO:
         elements.append(Paragraph(title.upper(), header_style))
         elements.append(HRFlowable(width="100%", thickness=0.8, color=colors.black, spaceBefore=1, spaceAfter=4))
 
-    # --- 2. EDUCATION ---
-    education_list = resume_data.get("education", [])
-    if education_list:
-        add_section("Education")
-        for edu in education_list:
-            inst = edu.get("institution", "")
-            loc = edu.get("location", "")
-            deg = edu.get("degree", "")
-            dates = edu.get("dates", "")
-            gpa = edu.get("gpa", "")
+    def render_education():
+        education_list = resume_data.get("education", [])
+        if education_list:
+            add_section("Education")
+            for edu in education_list:
+                inst = edu.get("institution", "")
+                loc = edu.get("location", "")
+                deg = edu.get("degree", "")
+                dates = edu.get("dates", "")
+                gpa = edu.get("gpa", "")
 
-            # Line 1: Institution | Location
-            row1 = [[Paragraph(inst, left_bold), Paragraph(loc, right_text)]]
-            t1 = Table(row1, colWidths=[380, 168])
-            t1.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
-            elements.append(t1)
+                row1 = [[Paragraph(inst, left_bold), Paragraph(loc, right_text)]]
+                t1 = Table(row1, colWidths=[380, 168])
+                t1.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
+                elements.append(t1)
 
-            # Line 2: Degree | Dates
-            deg_display = deg + (f" (GPA: {gpa})" if gpa else "")
-            row2 = [[Paragraph(deg_display, left_italic), Paragraph(dates, right_italic)]]
-            t2 = Table(row2, colWidths=[380, 168])
-            t2.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
-            elements.append(t2)
+                deg_display = deg + (f" (GPA: {gpa})" if gpa else "")
+                row2 = [[Paragraph(deg_display, left_italic), Paragraph(dates, right_italic)]]
+                t2 = Table(row2, colWidths=[380, 168])
+                t2.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
+                elements.append(t2)
 
-            cw = edu.get("relevant_coursework", [])
-            if cw:
-                cw_str = ", ".join(cw) if isinstance(cw, list) else str(cw)
-                elements.append(Paragraph(f"<b>Relevant Coursework:</b> {cw_str}", cw_style))
+                cw = edu.get("relevant_coursework", [])
+                if cw:
+                    cw_str = ", ".join(cw) if isinstance(cw, list) else str(cw)
+                    elements.append(Paragraph(f"<b>Relevant Coursework:</b> {cw_str}", cw_style))
 
-    # --- 3. EXPERIENCE ---
-    experiences = resume_data.get("experience", [])
-    if experiences:
-        add_section("Experience")
-        for exp in experiences:
-            role = exp.get("role", "")
-            comp = exp.get("company", "")
-            loc = exp.get("location", "")
-            dates = exp.get("dates", "")
+    def render_experience():
+        experiences = resume_data.get("experience", [])
+        if experiences:
+            add_section("Experience")
+            for exp in experiences:
+                role = exp.get("role", "")
+                comp = exp.get("company", "")
+                loc = exp.get("location", "")
+                dates = exp.get("dates", "")
 
-            row1 = [[Paragraph(f"<b>{role}</b>", left_bold), Paragraph(dates, right_text)]]
-            t1 = Table(row1, colWidths=[380, 168])
-            t1.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
-            elements.append(t1)
+                row1 = [[Paragraph(f"<b>{role}</b>", left_bold), Paragraph(dates, right_text)]]
+                t1 = Table(row1, colWidths=[380, 168])
+                t1.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
+                elements.append(t1)
 
-            row2 = [[Paragraph(comp, left_italic), Paragraph(loc, right_italic)]]
-            t2 = Table(row2, colWidths=[380, 168])
-            t2.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
-            elements.append(t2)
+                row2 = [[Paragraph(comp, left_italic), Paragraph(loc, right_italic)]]
+                t2 = Table(row2, colWidths=[380, 168])
+                t2.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
+                elements.append(t2)
 
-            for bullet in exp.get("bullets", []):
-                elements.append(Paragraph(f"• {bullet}", bullet_style))
+                for bullet in exp.get("bullets", []):
+                    elements.append(Paragraph(f"• {bullet}", bullet_style))
 
-    # --- 4. PROJECTS ---
-    projects = resume_data.get("projects", [])
-    if projects:
-        add_section("Projects")
-        for proj in projects:
-            title = proj.get("title", "")
-            tech = proj.get("tech_stack", "")
-            dates = proj.get("dates", "")
-            title_line = f"<b>{title}</b>" + (f" | <i>{tech}</i>" if tech else "")
+    def render_projects():
+        projects = resume_data.get("projects", [])
+        if projects:
+            add_section("Projects")
+            for proj in projects:
+                title = proj.get("title", "")
+                tech = proj.get("tech_stack", "")
+                dates = proj.get("dates", "")
+                title_line = f"<b>{title}</b>" + (f" | <i>{tech}</i>" if tech else "")
 
-            row = [[Paragraph(title_line, left_bold), Paragraph(dates, right_text)]]
-            t = Table(row, colWidths=[380, 168])
-            t.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
-            elements.append(t)
+                row = [[Paragraph(title_line, left_bold), Paragraph(dates, right_text)]]
+                t = Table(row, colWidths=[380, 168])
+                t.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)]))
+                elements.append(t)
 
-            for bullet in proj.get("bullets", []):
-                elements.append(Paragraph(f"• {bullet}", bullet_style))
+                for bullet in proj.get("bullets", []):
+                    elements.append(Paragraph(f"• {bullet}", bullet_style))
 
-    # --- 5. TECHNICAL SKILLS ---
-    skills = resume_data.get("skills", {})
-    if skills:
-        add_section("Technical Skills")
-        if isinstance(skills, dict):
-            for cat, items in skills.items():
-                items_str = ", ".join(items) if isinstance(items, list) else str(items)
-                elements.append(Paragraph(f"<b>{cat}:</b> {items_str}", bullet_style))
-        elif isinstance(skills, list):
-            elements.append(Paragraph(f"<b>Skills:</b> {', '.join(skills)}", bullet_style))
+    def render_skills():
+        skills = resume_data.get("skills", {})
+        if skills:
+            add_section("Technical Skills")
+            if isinstance(skills, dict):
+                for cat, items in skills.items():
+                    items_str = ", ".join(items) if isinstance(items, list) else str(items)
+                    elements.append(Paragraph(f"<b>{cat}:</b> {items_str}", bullet_style))
+            elif isinstance(skills, list):
+                elements.append(Paragraph(f"<b>Skills:</b> {', '.join(skills)}", bullet_style))
 
-    # --- 6. HONORS / AWARDS ---
-    certs = resume_data.get("certifications_or_awards", [])
-    if certs:
-        add_section("Honors & Certifications")
-        for cert in certs:
-            elements.append(Paragraph(f"• {cert if isinstance(cert, str) else str(cert)}", bullet_style))
+    def render_certs():
+        certs = resume_data.get("certifications_or_awards", [])
+        if certs:
+            add_section("Honors & Certifications")
+            for cert in certs:
+                elements.append(Paragraph(f"• {cert if isinstance(cert, str) else str(cert)}", bullet_style))
+
+    career_level = resume_data.get("career_level", "student")
+    if career_level == "experienced":
+        render_experience()
+        render_projects()
+        render_skills()
+        render_education()
+        render_certs()
+    else:
+        render_education()
+        render_experience()
+        render_projects()
+        render_skills()
+        render_certs()
 
     doc.build(elements)
     buffer.seek(0)

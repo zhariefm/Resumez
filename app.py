@@ -1,12 +1,21 @@
 import os
+import io
+import base64
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
 
 from resume_parser import extract_resume_text
-from tailor_engine import tailor_resume_and_letter, recommend_companies_for_student
+from tailor_engine import tailor_resume_and_letter, recommend_companies_for_student, tune_bullet
 from docx_generator import create_jakes_resume_docx, create_application_letter_docx
 from pdf_generator import create_jakes_resume_pdf, create_application_letter_pdf
+from tracker import (
+    save_application,
+    get_all_applications,
+    get_application,
+    update_application_status,
+    delete_application
+)
 
 load_dotenv()
 
@@ -30,7 +39,7 @@ st.markdown("""
 
     .block-container {
         max-width: 980px !important;
-        padding-top: 2rem !important;
+        padding-top: 1.75rem !important;
         padding-bottom: 4rem !important;
     }
 
@@ -55,12 +64,12 @@ st.markdown("""
 
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* --- APPLE SEGMENTED CONTROL HEADER --- */
+    /* --- APPLE HEADER & SEGMENTED CONTROLS --- */
     .apple-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2.25rem;
+        margin-bottom: 2rem;
         padding-bottom: 0.5rem;
     }
 
@@ -84,7 +93,7 @@ st.markdown("""
     }
 
     .apple-nav-pill {
-        padding: 0.35rem 1rem;
+        padding: 0.35rem 0.95rem;
         border-radius: 980px;
         font-size: 0.82rem;
         font-weight: 500;
@@ -131,7 +140,7 @@ st.markdown("""
     .apple-subtitle {
         font-size: 1rem !important;
         color: #86868b !important;
-        margin: 0 0 1.75rem 0 !important;
+        margin: 0 0 1.5rem 0 !important;
         line-height: 1.45 !important;
     }
 
@@ -164,7 +173,7 @@ st.markdown("""
         border: none !important;
     }
 
-    /* File Uploader Dropzone */
+    /* Dropzone */
     [data-testid="stFileUploader"] section,
     [data-testid="stFileUploaderDropzone"] {
         background-color: #ffffff !important;
@@ -190,12 +199,12 @@ st.markdown("""
         padding: 0.4rem 1.25rem !important;
     }
 
-    /* --- APPLE BUTTONS --- */
+    /* Buttons */
     .stButton>button {
         border-radius: 980px !important;
         font-weight: 500 !important;
-        font-size: 0.94rem !important;
-        padding: 0.6rem 1.5rem !important;
+        font-size: 0.92rem !important;
+        padding: 0.55rem 1.4rem !important;
         transition: all 0.2s ease !important;
     }
 
@@ -225,7 +234,67 @@ st.markdown("""
         background: #e8e8ed !important;
     }
 
-    /* --- COMPANY CARDS --- */
+    /* Keyword Badges */
+    .kw-badge-matched {
+        display: inline-flex;
+        align-items: center;
+        background: #eaf7ed;
+        color: #1e7e34;
+        border: 1px solid #c3e6cb;
+        border-radius: 980px;
+        padding: 0.28rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin: 3px 4px 3px 0;
+    }
+
+    .kw-badge-missing {
+        display: inline-flex;
+        align-items: center;
+        background: #fff8e1;
+        color: #b78103;
+        border: 1px solid #ffe082;
+        border-radius: 980px;
+        padding: 0.28rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin: 3px 4px 3px 0;
+    }
+
+    /* Outreach Card */
+    .apple-outreach-card {
+        background: #ffffff;
+        border: 1px solid #d2d2d7;
+        border-radius: 14px;
+        padding: 1.35rem 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Metric Cards */
+    .apple-metric-card {
+        background: #f5f5f7;
+        border: 1px solid #e5e5ea;
+        border-radius: 14px;
+        padding: 1.15rem 1rem;
+        text-align: center;
+    }
+
+    .apple-metric-val {
+        font-size: 1.95rem;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin: 0.15rem 0;
+    }
+
+    .apple-metric-label {
+        font-size: 0.76rem;
+        color: #86868b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    /* Company Card */
     .apple-company-card {
         background: #ffffff;
         border: 1px solid #d2d2d7;
@@ -279,31 +348,7 @@ st.markdown("""
         border-radius: 980px;
     }
 
-    /* --- METRIC CARDS --- */
-    .apple-metric-card {
-        background: #f5f5f7;
-        border: 1px solid #e5e5ea;
-        border-radius: 14px;
-        padding: 1.15rem 1rem;
-        text-align: center;
-    }
-
-    .apple-metric-val {
-        font-size: 1.95rem;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin: 0.15rem 0;
-    }
-
-    .apple-metric-label {
-        font-size: 0.76rem;
-        color: #86868b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    /* --- JAKE'S RESUME PAPER (PURE ATS B&W) --- */
+    /* Jake's Paper (Pure ATS B&W) */
     .jakes-paper, .letter-paper {
         background: #ffffff !important;
         border: 1px solid #d2d2d7;
@@ -573,6 +618,8 @@ TECH_COUNTRIES = {
 if "current_step" not in st.session_state:
     st.session_state.current_step = 1
 
+if "career_level" not in st.session_state:
+    st.session_state.career_level = "student"
 if "student_text" not in st.session_state:
     st.session_state.student_text = ""
 if "target_country" not in st.session_state:
@@ -593,6 +640,12 @@ if "recommended_companies" not in st.session_state:
     st.session_state.recommended_companies = []
 if "tailored_data" not in st.session_state:
     st.session_state.tailored_data = None
+if "show_tracker" not in st.session_state:
+    st.session_state.show_tracker = False
+if "resume_preview_mode" not in st.session_state:
+    st.session_state.resume_preview_mode = "pdf"
+if "active_saved_id" not in st.session_state:
+    st.session_state.active_saved_id = None
 
 # --- TOP MINIMAL HEADER ---
 step = st.session_state.current_step
@@ -600,27 +653,122 @@ s1_class = "apple-nav-pill apple-nav-pill-done" if step > 1 else ("apple-nav-pil
 s2_class = "apple-nav-pill apple-nav-pill-done" if step > 2 else ("apple-nav-pill apple-nav-pill-active" if step == 2 else "apple-nav-pill")
 s3_class = "apple-nav-pill apple-nav-pill-active" if step == 3 else "apple-nav-pill"
 
-st.markdown(f"""
-<div class="apple-header">
-    <div class="apple-brand">Resumez</div>
-    <div class="apple-nav-track">
-        <div class="{s1_class}">1. Profile</div>
-        <div class="{s2_class}">2. Company</div>
-        <div class="{s3_class}">3. Tailor</div>
+saved_apps_count = len(get_all_applications())
+
+header_col1, header_col2, header_col3 = st.columns([2.5, 3.5, 2])
+
+with header_col1:
+    st.markdown('<div class="apple-brand" style="margin-top: 6px;">Resumez</div>', unsafe_allow_html=True)
+
+with header_col2:
+    st.markdown(f"""
+    <div style="display: flex; justify-content: center;">
+        <div class="apple-nav-track">
+            <div class="{s1_class}">1. Profile</div>
+            <div class="{s2_class}">2. Company</div>
+            <div class="{s3_class}">3. Tailor</div>
+        </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with header_col3:
+    tracker_btn_label = f"📁 Applications ({saved_apps_count})" if not st.session_state.show_tracker else "✕ Close Applications"
+    if st.button(tracker_btn_label, key="toggle_tracker_btn", use_container_width=True):
+        st.session_state.show_tracker = not st.session_state.show_tracker
+        st.rerun()
+
+st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+# --- APPLICATION TRACKER DRAWER (IF TOGGLED) ---
+if st.session_state.show_tracker:
+    st.markdown("""
+    <div class="apple-card">
+        <h2 class="apple-title">Saved Applications</h2>
+        <p class="apple-subtitle">Your personalized application pipeline and tailored documents.</p>
+    """, unsafe_allow_html=True)
+
+    apps = get_all_applications()
+    if not apps:
+        st.info("No applications saved yet. Complete Step 3 to save your first application.")
+    else:
+        for item in apps:
+            a_id = item["id"]
+            a_comp = item["company_name"]
+            a_role = item["role_title"]
+            a_loc = item["location"]
+            a_score = item["match_score"]
+            a_status = item["status"]
+            a_date = item["created_at"][:10]
+
+            with st.container():
+                st.markdown(f"""
+                <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <span style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f;">{a_comp}</span>
+                        <span style="color: #86868b; font-size: 0.9rem; margin-left: 0.4rem;">{a_role} &bull; {a_loc}</span>
+                        <div style="color: #86868b; font-size: 0.78rem; margin-top: 2px;">Saved on {a_date}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span class="apple-score-pill">{a_score}% Match</span>
+                        <span style="background: #f5f5f7; border: 1px solid #d2d2d7; padding: 0.25rem 0.65rem; border-radius: 980px; font-size: 0.82rem; font-weight: 600; color: #1d1d1f;">{a_status}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                c_load, c_stat, c_del = st.columns([1.5, 2, 1])
+                with c_load:
+                    if st.button(f"Open Application →", key=f"open_app_{a_id}", use_container_width=True, type="primary"):
+                        full_rec = get_application(a_id)
+                        if full_rec and full_rec.get("data"):
+                            st.session_state.tailored_data = full_rec["data"]
+                            st.session_state.company_name = a_comp
+                            st.session_state.role_title = a_role
+                            st.session_state.target_location = a_loc
+                            st.session_state.career_level = full_rec.get("career_level", "student")
+                            st.session_state.active_saved_id = a_id
+                            st.session_state.show_tracker = False
+                            st.session_state.current_step = 3
+                            st.rerun()
+
+                with c_stat:
+                    status_opts = ["Draft", "Applied", "Interviewing", "Offer", "Archived"]
+                    stat_idx = status_opts.index(a_status) if a_status in status_opts else 0
+                    new_st = st.selectbox("Status", options=status_opts, index=stat_idx, key=f"stat_sel_{a_id}", label_visibility="collapsed")
+                    if new_st != a_status:
+                        update_application_status(a_id, new_st)
+                        st.rerun()
+
+                with c_del:
+                    if st.button("Delete", key=f"del_app_{a_id}", use_container_width=True):
+                        delete_application(a_id)
+                        st.toast("Application deleted.")
+                        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==============================================================================
 # STEP 1: PROFILE & LOCATION
 # ==============================================================================
-if st.session_state.current_step == 1:
+if st.session_state.current_step == 1 and not st.session_state.show_tracker:
     st.markdown("""
     <div class="apple-card">
         <h2 class="apple-title">Profile & Location</h2>
-        <p class="apple-subtitle">Upload your existing resume and pick your target hiring location.</p>
+        <p class="apple-subtitle">Select your career phase, upload your background, and pick your target hiring market.</p>
     """, unsafe_allow_html=True)
+
+    # Career Stage Switcher
+    st.markdown("**Career Stage**")
+    career_choice = st.radio(
+        "Career Stage",
+        options=["Student / New Grad", "Experienced Professional"],
+        index=0 if st.session_state.career_level == "student" else 1,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.session_state.career_level = "student" if "Student" in career_choice else "experienced"
+
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
     # Resume Upload
     uploaded_file = st.file_uploader(
@@ -720,7 +868,7 @@ if st.session_state.current_step == 1:
 # ==============================================================================
 # STEP 2: COMPANY SELECTION
 # ==============================================================================
-elif st.session_state.current_step == 2:
+elif st.session_state.current_step == 2 and not st.session_state.show_tracker:
     st.markdown("""
     <div class="apple-card">
         <h2 class="apple-title">Target Company</h2>
@@ -779,16 +927,28 @@ elif st.session_state.current_step == 2:
                         st.session_state.company_website = website
                         st.session_state.job_description = rec.get("job_description", "")
 
-                        with st.spinner(f"Tailoring resume for {c_name}..."):
+                        with st.spinner(f"Tailoring documents for {c_name}..."):
                             try:
                                 res = tailor_resume_and_letter(
                                     resume_text=st.session_state.student_text,
                                     job_description=st.session_state.job_description,
                                     company_name=c_name,
                                     role_title=r_title,
-                                    location=target_loc
+                                    location=target_loc,
+                                    career_level=st.session_state.career_level
                                 )
                                 st.session_state.tailored_data = res
+                                # Auto-save to tracker
+                                new_id = save_application(
+                                    company_name=c_name,
+                                    role_title=r_title,
+                                    location=target_loc,
+                                    match_score=res.get("ats_assessment", {}).get("match_score", 90),
+                                    data=res,
+                                    status="Draft",
+                                    career_level=st.session_state.career_level
+                                )
+                                st.session_state.active_saved_id = new_id
                                 st.session_state.current_step = 3
                                 st.rerun()
                             except Exception as e:
@@ -822,9 +982,20 @@ elif st.session_state.current_step == 2:
                             job_description=st.session_state.job_description,
                             company_name=st.session_state.company_name,
                             role_title=st.session_state.role_title,
-                            location=st.session_state.target_location
+                            location=st.session_state.target_location,
+                            career_level=st.session_state.career_level
                         )
                         st.session_state.tailored_data = res
+                        new_id = save_application(
+                            company_name=st.session_state.company_name,
+                            role_title=st.session_state.role_title,
+                            location=st.session_state.target_location,
+                            match_score=res.get("ats_assessment", {}).get("match_score", 90),
+                            data=res,
+                            status="Draft",
+                            career_level=st.session_state.career_level
+                        )
+                        st.session_state.active_saved_id = new_id
                         st.session_state.current_step = 3
                         st.rerun()
                     except Exception as e:
@@ -836,7 +1007,7 @@ elif st.session_state.current_step == 2:
 # ==============================================================================
 # STEP 3: REVIEW & EXPORT
 # ==============================================================================
-elif st.session_state.current_step == 3:
+elif st.session_state.current_step == 3 and not st.session_state.show_tracker:
     data = st.session_state.tailored_data
     if not data:
         st.warning("No tailored data available.")
@@ -855,20 +1026,33 @@ elif st.session_state.current_step == 3:
         target_comp = assessment.get("target_company") or st.session_state.company_name or "Company"
         target_r = assessment.get("target_role") or st.session_state.role_title or "Role"
         rep_loc = assessment.get("location") or st.session_state.target_location
-        website = st.session_state.company_website or ""
 
         st.markdown(f"""
         <div class="apple-card">
             <h2 class="apple-title">{target_comp} Application</h2>
-            <p class="apple-subtitle">{target_r} &nbsp;•&nbsp; {rep_loc}</p>
+            <p class="apple-subtitle">{target_r} &nbsp;&bull;&nbsp; {rep_loc} &nbsp;&bull;&nbsp; <span style="text-transform: capitalize;">{st.session_state.career_level} Level</span></p>
         """, unsafe_allow_html=True)
 
-        # Nav Actions
+        # Nav Actions & Status Sync
         b1, b2, b3 = st.columns([1.5, 3, 1.5])
         with b1:
             if st.button("← Change Company", type="secondary"):
                 st.session_state.current_step = 2
                 st.rerun()
+        with b2:
+            if st.session_state.active_saved_id:
+                curr_app = get_application(st.session_state.active_saved_id)
+                curr_stat = curr_app.get("status", "Draft") if curr_app else "Draft"
+                sc1, sc2 = st.columns([1.5, 2.5])
+                with sc1:
+                    st.markdown("<div style='text-align: right; padding-top: 6px; font-weight: 500; font-size: 0.88rem; color: #86868b;'>Pipeline Status:</div>", unsafe_allow_html=True)
+                with sc2:
+                    status_choices = ["Draft", "Applied", "Interviewing", "Offer", "Archived"]
+                    s_idx = status_choices.index(curr_stat) if curr_stat in status_choices else 0
+                    chosen_stat = st.selectbox("Pipeline Status", options=status_choices, index=s_idx, label_visibility="collapsed", key="active_app_status")
+                    if chosen_stat != curr_stat:
+                        update_application_status(st.session_state.active_saved_id, chosen_stat)
+                        st.toast(f"Status updated to {chosen_stat}", icon="✓")
         with b3:
             if st.button("Start Over", type="secondary"):
                 st.session_state.current_step = 1
@@ -972,130 +1156,311 @@ elif st.session_state.current_step == 3:
 
         # Tabs
         st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
-        tab_res, tab_let, tab_diff, tab_q, tab_li = st.tabs([
+        tab_res, tab_kw, tab_tune, tab_outreach, tab_let, tab_q, tab_li = st.tabs([
             "Resume Preview",
+            "Keyword Matrix",
+            "Bullet Tuner",
+            "Outreach Suite",
             "Cover Letter",
-            "Bullet Changes",
             "Interview Prep",
             "LinkedIn"
         ])
 
+        # --- 1. RESUME PREVIEW (WITH LIVE VECTOR PDF VIEW) ---
         with tab_res:
-            p_info = data.get("personal_info", {})
-            contact_line = "  |  ".join([p for p in [p_info.get("phone"), p_info.get("email"), p_info.get("linkedin"), p_info.get("github"), p_info.get("portfolio")] if p])
+            p_mode = st.radio(
+                "Preview Format",
+                options=["Live PDF Document", "Clean Text View"],
+                index=0 if st.session_state.resume_preview_mode == "pdf" else 1,
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            st.session_state.resume_preview_mode = "pdf" if "PDF" in p_mode else "paper"
 
-            st.markdown('<div class="jakes-paper">', unsafe_allow_html=True)
-            st.markdown(f'<div class="jakes-name">{p_info.get("name", "Candidate")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="jakes-contact">{contact_line}</div>', unsafe_allow_html=True)
+            if st.session_state.resume_preview_mode == "pdf":
+                pdf_bytes = resume_pdf_buf.getvalue()
+                base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=1" width="100%" height="750" style="border: 1px solid #d2d2d7; border-radius: 12px; margin-top: 10px;" type="application/pdf"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+            else:
+                p_info = data.get("personal_info", {})
+                contact_line = "  |  ".join([p for p in [p_info.get("phone"), p_info.get("email"), p_info.get("linkedin"), p_info.get("github"), p_info.get("portfolio")] if p])
 
-            edu_list = data.get("education", [])
-            if edu_list:
-                st.markdown('<div class="jakes-section-title">Education</div>', unsafe_allow_html=True)
-                for edu in edu_list:
-                    inst = edu.get("institution", "")
-                    loc = edu.get("location", "")
-                    deg = edu.get("degree", "")
-                    dates = edu.get("dates", "")
-                    gpa = edu.get("gpa", "")
-                    deg_str = deg + (f" (GPA: {gpa})" if gpa else "")
+                st.markdown('<div class="jakes-paper">', unsafe_allow_html=True)
+                st.markdown(f'<div class="jakes-name">{p_info.get("name", "Candidate")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="jakes-contact">{contact_line}</div>', unsafe_allow_html=True)
 
-                    st.markdown(f'''
-                    <div class="jakes-row">
-                        <span class="jakes-bold">{inst}</span>
-                        <span>{loc}</span>
+                def render_html_edu():
+                    edu_list = data.get("education", [])
+                    if edu_list:
+                        st.markdown('<div class="jakes-section-title">Education</div>', unsafe_allow_html=True)
+                        for edu in edu_list:
+                            inst = edu.get("institution", "")
+                            loc = edu.get("location", "")
+                            deg = edu.get("degree", "")
+                            dates = edu.get("dates", "")
+                            gpa = edu.get("gpa", "")
+                            deg_str = deg + (f" (GPA: {gpa})" if gpa else "")
+
+                            st.markdown(f'''
+                            <div class="jakes-row">
+                                <span class="jakes-bold">{inst}</span>
+                                <span>{loc}</span>
+                            </div>
+                            <div class="jakes-row">
+                                <span class="jakes-italic">{deg_str}</span>
+                                <span class="jakes-italic">{dates}</span>
+                            </div>
+                            ''', unsafe_allow_html=True)
+
+                def render_html_exp():
+                    exp_list = data.get("experience", [])
+                    if exp_list:
+                        st.markdown('<div class="jakes-section-title">Experience</div>', unsafe_allow_html=True)
+                        for exp in exp_list:
+                            role = exp.get("role", "")
+                            comp = exp.get("company", "")
+                            loc = exp.get("location", "")
+                            dates = exp.get("dates", "")
+
+                            st.markdown(f'''
+                            <div class="jakes-row">
+                                <span class="jakes-bold">{role}</span>
+                                <span>{dates}</span>
+                            </div>
+                            <div class="jakes-row">
+                                <span class="jakes-italic">{comp}</span>
+                                <span class="jakes-italic">{loc}</span>
+                            </div>
+                            ''', unsafe_allow_html=True)
+                            bullets_html = "".join([f"<li>{b}</li>" for b in exp.get("bullets", [])])
+                            st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
+
+                def render_html_proj():
+                    proj_list = data.get("projects", [])
+                    if proj_list:
+                        st.markdown('<div class="jakes-section-title">Projects</div>', unsafe_allow_html=True)
+                        for proj in proj_list:
+                            name = proj.get("title", proj.get("name", ""))
+                            tools = proj.get("tech_stack", proj.get("tools", ""))
+                            dates = proj.get("dates", "")
+                            tools_str = f" | {tools}" if tools else ""
+
+                            st.markdown(f'''
+                            <div class="jakes-row">
+                                <span><span class="jakes-bold">{name}</span><span class="jakes-italic">{tools_str}</span></span>
+                                <span class="jakes-italic">{dates}</span>
+                            </div>
+                            ''', unsafe_allow_html=True)
+                            bullets_html = "".join([f"<li>{b}</li>" for b in proj.get("bullets", [])])
+                            st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
+
+                def render_html_skills():
+                    skills_dict = data.get("skills", data.get("technical_skills", {}))
+                    if skills_dict:
+                        st.markdown('<div class="jakes-section-title">Technical Skills</div>', unsafe_allow_html=True)
+                        if isinstance(skills_dict, dict):
+                            for cat, items in skills_dict.items():
+                                items_str = ", ".join(items) if isinstance(items, list) else str(items)
+                                cat_clean = cat.replace("_", " ").title()
+                                st.markdown(f'<div style="font-size: 0.88rem; margin-bottom: 0.2rem;"><b>{cat_clean}:</b> {items_str}</div>', unsafe_allow_html=True)
+                        elif isinstance(skills_dict, list):
+                            st.markdown(f'<div style="font-size: 0.88rem; margin-bottom: 0.2rem;"><b>Skills:</b> {", ".join(skills_dict)}</div>', unsafe_allow_html=True)
+
+                if st.session_state.career_level == "experienced":
+                    render_html_exp()
+                    render_html_proj()
+                    render_html_skills()
+                    render_html_edu()
+                else:
+                    render_html_edu()
+                    render_html_exp()
+                    render_html_proj()
+                    render_html_skills()
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- 2. ATS KEYWORD GAP & SKILLS MATRIX ---
+        with tab_kw:
+            matched_kws = assessment.get("key_matched_keywords", [])
+            missing_kws = assessment.get("missing_or_recommended_keywords", [])
+
+            total_kw = len(matched_kws) + len(missing_kws)
+            coverage = int((len(matched_kws) / total_kw) * 100) if total_kw > 0 else 85
+
+            st.markdown(f"""
+            <div style="background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 1.5rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
+                    <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f;">Keyword Match & Gap Analysis</div>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: #0071e3;">{coverage}% Coverage</div>
+                </div>
+                <div style="width: 100%; background: #e5e5ea; height: 8px; border-radius: 980px; overflow: hidden; margin-bottom: 1.25rem;">
+                    <div style="width: {coverage}%; background: #0071e3; height: 100%;"></div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("**Matched Keywords in Resume**")
+            if matched_kws:
+                badges_m = "".join([f'<span class="kw-badge-matched">✓ {k}</span>' for k in matched_kws])
+                st.markdown(f'<div style="margin-bottom: 1.25rem;">{badges_m}</div>', unsafe_allow_html=True)
+            else:
+                st.caption("None detected.")
+
+            st.markdown("**Missing / High-Value Keywords in Job Description**")
+            if missing_kws:
+                badges_miss = "".join([f'<span class="kw-badge-missing">⚠️ {k}</span>' for k in missing_kws])
+                st.markdown(f'<div style="margin-bottom: 1rem;">{badges_miss}</div>', unsafe_allow_html=True)
+                st.caption("Tip: If you have truthful project or academic exposure to any missing skills, use the Bullet Tuner to incorporate them.")
+            else:
+                st.caption("Full keyword coverage achieved.")
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # --- 3. INTERACTIVE BULLET TUNER ---
+        with tab_tune:
+            st.markdown("""
+            <div style="margin-bottom: 1rem;">
+                <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f; margin-bottom: 0.25rem;">Interactive Bullet Tuner</div>
+                <div style="font-size: 0.9rem; color: #86868b;">Select any bullet point to infuse metrics, deepen technical rigor, or sharpen brevity in real-time.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Build list of all bullets
+            all_bullet_items = []
+            for exp_idx, exp in enumerate(data.get("experience", [])):
+                for b_idx, b in enumerate(exp.get("bullets", [])):
+                    all_bullet_items.append({
+                        "label": f"Experience: {exp.get('company', 'Work')} - Bullet {b_idx + 1}",
+                        "text": b,
+                        "type": "exp",
+                        "parent_idx": exp_idx,
+                        "bullet_idx": b_idx
+                    })
+
+            for proj_idx, proj in enumerate(data.get("projects", [])):
+                for b_idx, b in enumerate(proj.get("bullets", [])):
+                    all_bullet_items.append({
+                        "label": f"Project: {proj.get('title', proj.get('name', 'Project'))} - Bullet {b_idx + 1}",
+                        "text": b,
+                        "type": "proj",
+                        "parent_idx": proj_idx,
+                        "bullet_idx": b_idx
+                    })
+
+            if not all_bullet_items:
+                st.info("No bullet points available to tune.")
+            else:
+                bullet_labels = [item["label"] for item in all_bullet_items]
+                chosen_label = st.selectbox("Select Bullet to Tune", options=bullet_labels)
+                selected_item = next(item for item in all_bullet_items if item["label"] == chosen_label)
+
+                current_text = selected_item["text"]
+                st.text_area("Current Bullet", value=current_text, height=75, disabled=True)
+
+                t_c1, t_c2, t_c3 = st.columns(3)
+                tune_action = None
+                with t_c1:
+                    if st.button("⚡ Add Metrics & Data", use_container_width=True):
+                        tune_action = "add_metrics"
+                with t_c2:
+                    if st.button("🎯 Make More Technical", use_container_width=True):
+                        tune_action = "more_technical"
+                with t_c3:
+                    if st.button("✂️ Make More Concise", use_container_width=True):
+                        tune_action = "more_concise"
+
+                if tune_action:
+                    with st.spinner("Polishing bullet point..."):
+                        try:
+                            tuned = tune_bullet(
+                                bullet_text=current_text,
+                                mode=tune_action,
+                                target_role=target_r
+                            )
+                            # Update in session state data
+                            p_idx = selected_item["parent_idx"]
+                            b_idx = selected_item["bullet_idx"]
+                            if selected_item["type"] == "exp":
+                                st.session_state.tailored_data["experience"][p_idx]["bullets"][b_idx] = tuned
+                            else:
+                                st.session_state.tailored_data["projects"][p_idx]["bullets"][b_idx] = tuned
+
+                            # Update in active saved app
+                            if st.session_state.active_saved_id:
+                                save_application(
+                                    company_name=target_comp,
+                                    role_title=target_r,
+                                    location=rep_loc,
+                                    match_score=score,
+                                    data=st.session_state.tailored_data,
+                                    status="Draft",
+                                    career_level=st.session_state.career_level
+                                )
+                            st.toast("Bullet updated successfully!", icon="✓")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error tuning bullet: {e}")
+
+            # Bullet transformations diff list
+            st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
+            st.markdown("**Original vs Tailored Transformations**")
+            transforms = data.get("bullet_transformations", [])
+            if transforms:
+                for tf in transforms:
+                    st.markdown(f"""
+                    <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem;">
+                        <div style="font-weight: 600; color: #1d1d1f; font-size: 0.9rem; margin-bottom: 0.35rem;">{tf.get('context', 'Experience')}</div>
+                        <div style="color: #ff3b30; font-size: 0.86rem; margin-bottom: 0.3rem;"><b>Before:</b> {tf.get('original_bullet', '')}</div>
+                        <div style="color: #34c759; font-size: 0.86rem; margin-bottom: 0.3rem;"><b>After:</b> {tf.get('elevated_bullet', '')}</div>
+                        <div style="color: #86868b; font-size: 0.78rem;"><b>Impact:</b> {tf.get('impact_enhancement', '')}</div>
                     </div>
-                    <div class="jakes-row">
-                        <span class="jakes-italic">{deg_str}</span>
-                        <span class="jakes-italic">{dates}</span>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-            exp_list = data.get("experience", [])
-            if exp_list:
-                st.markdown('<div class="jakes-section-title">Experience</div>', unsafe_allow_html=True)
-                for exp in exp_list:
-                    role = exp.get("role", "")
-                    comp = exp.get("company", "")
-                    loc = exp.get("location", "")
-                    dates = exp.get("dates", "")
+        # --- 4. RECRUITER OUTREACH SUITE ---
+        with tab_outreach:
+            outreach = data.get("recruiter_outreach", {})
+            st.markdown("""
+            <div style="margin-bottom: 1rem;">
+                <div style="font-weight: 700; font-size: 1.1rem; color: #1d1d1f; margin-bottom: 0.25rem;">Recruiter Outreach Suite</div>
+                <div style="font-size: 0.9rem; color: #86868b;">Direct messaging templates for LinkedIn and email designed to bypass recruiter inboxes.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-                    st.markdown(f'''
-                    <div class="jakes-row">
-                        <span class="jakes-bold">{role}</span>
-                        <span>{dates}</span>
-                    </div>
-                    <div class="jakes-row">
-                        <span class="jakes-italic">{comp}</span>
-                        <span class="jakes-italic">{loc}</span>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    bullets_html = "".join([f"<li>{b}</li>" for b in exp.get("bullets", [])])
-                    st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
+            # LinkedIn Note
+            li_note = outreach.get("linkedin_connection_note", f"Hi [Name], I noticed your work on the engineering team at {target_comp}. Having worked extensively with modern tech stacks, I'd love to connect and follow your team's journey.")
+            char_len = len(li_note)
+            st.markdown(f"**LinkedIn Connection Request Note** <span style='color: #86868b; font-size: 0.82rem;'>({char_len}/300 characters)</span>", unsafe_allow_html=True)
+            st.text_area("LinkedIn Connection Note", value=li_note, height=80, key="ta_li_note", label_visibility="collapsed")
 
-            proj_list = data.get("projects", [])
-            if proj_list:
-                st.markdown('<div class="jakes-section-title">Projects</div>', unsafe_allow_html=True)
-                for proj in proj_list:
-                    name = proj.get("name", "")
-                    tools = proj.get("tools", "")
-                    dates = proj.get("dates", "")
-                    tools_str = f" | {tools}" if tools else ""
+            # Cold Email
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            st.markdown("**Cold Email to Hiring Manager**")
+            em_subj = outreach.get("cold_email_subject", f"{target_r} Candidate - {data.get('personal_info', {}).get('name', 'Candidate')}")
+            em_body = outreach.get("cold_email_body", "Hi [Hiring Manager],\n\nI recently came across the role at [Company]...")
+            st.text_input("Email Subject Line", value=em_subj)
+            st.text_area("Email Body", value=em_body, height=160)
 
-                    st.markdown(f'''
-                    <div class="jakes-row">
-                        <span><span class="jakes-bold">{name}</span><span class="jakes-italic">{tools_str}</span></span>
-                        <span class="jakes-italic">{dates}</span>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    bullets_html = "".join([f"<li>{b}</li>" for b in proj.get("bullets", [])])
-                    st.markdown(f'<ul class="jakes-ul">{bullets_html}</ul>', unsafe_allow_html=True)
+            # Thank You Note
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            st.markdown("**Post-Interview Thank You Note**")
+            ty_note = outreach.get("thank_you_note", "Hi [Interviewer],\n\nThank you for the conversation today...")
+            st.text_area("Thank You Note", value=ty_note, height=130)
 
-            skills_dict = data.get("technical_skills", {})
-            if skills_dict:
-                st.markdown('<div class="jakes-section-title">Technical Skills</div>', unsafe_allow_html=True)
-                for cat, items in skills_dict.items():
-                    items_str = ", ".join(items) if isinstance(items, list) else str(items)
-                    cat_clean = cat.replace("_", " ").title()
-                    st.markdown(f'<div style="font-size: 0.88rem; margin-bottom: 0.2rem;"><b>{cat_clean}:</b> {items_str}</div>', unsafe_allow_html=True)
-
-            st.markdown('</div>', unsafe_allow_html=True)
-
+        # --- 5. COVER LETTER ---
         with tab_let:
             let_data = data.get("application_letter", {})
             st.markdown('<div class="letter-paper">', unsafe_allow_html=True)
             st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 0.8rem;">{let_data.get("date", "Current Date")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;"><b>To:</b> Hiring Team, {target_comp}</div>', unsafe_allow_html=True)
             st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("greeting", "Dear Hiring Team,")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("opening_hook", "")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("why_company", "")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("student_value_add", "")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1.5rem;">{let_data.get("closing_and_call_to_action", "")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size: 0.95rem;">{let_data.get("sign_off", "Sincerely,")}<br><b>{p_info.get("name", "Candidate")}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("opening_hook", let_data.get("opening", ""))}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("why_company", let_data.get("body_paragraph_1", ""))}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1rem;">{let_data.get("student_value_add", let_data.get("body_paragraph_2", ""))}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size: 0.95rem; margin-bottom: 1.5rem;">{let_data.get("closing_and_call_to_action", let_data.get("closing", ""))}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size: 0.95rem;">{let_data.get("sign_off", "Sincerely,")}<br><b>{data.get("personal_info", {}).get("name", "Candidate")}</b></div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        with tab_diff:
-            transforms = data.get("bullet_transformations", [])
-            if not transforms:
-                st.info("No bullet edits recorded.")
-            else:
-                for tf in transforms:
-                    st.markdown(f"""
-                    <div style="background: #f5f5f7; border: 1px solid #e5e5ea; border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem;">
-                        <div style="font-weight: 600; color: #1d1d1f; font-size: 0.9rem; margin-bottom: 0.4rem;">
-                            {tf.get('context', 'Experience')}
-                        </div>
-                        <div style="color: #ff3b30; font-size: 0.88rem; margin-bottom: 0.35rem;">
-                            <b>Before:</b> {tf.get('original_bullet', '')}
-                        </div>
-                        <div style="color: #34c759; font-size: 0.88rem; margin-bottom: 0.35rem;">
-                            <b>After:</b> {tf.get('elevated_bullet', '')}
-                        </div>
-                        <div style="color: #86868b; font-size: 0.8rem;">
-                            <b>Change:</b> {tf.get('impact_enhancement', '')}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
+        # --- 6. INTERVIEW PREP ---
         with tab_q:
             interview_data = data.get("interview_prep", {})
             tech_q = interview_data.get("technical_questions", [])
@@ -1120,15 +1485,10 @@ elif st.session_state.current_step == 3:
                 </div>
                 """, unsafe_allow_html=True)
 
+        # --- 7. LINKEDIN SUITE ---
         with tab_li:
             li_suite = data.get("linkedin_suite", {})
             st.text_input("LinkedIn Headline", value=li_suite.get("headline", ""))
-            st.text_area("LinkedIn About", value=li_suite.get("about_summary", ""), height=100)
-
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-            st.markdown("**Matched Keywords**")
-            matched_kw = assessment.get("key_matched_keywords", [])
-            if matched_kw:
-                st.write(", ".join(matched_kw))
+            st.text_area("LinkedIn About", value=li_suite.get("about_summary", ""), height=120)
 
         st.markdown("</div>", unsafe_allow_html=True)

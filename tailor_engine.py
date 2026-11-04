@@ -133,6 +133,12 @@ Respond strictly in valid JSON matching this schema:
   "linkedin_suite": {
     "headline": "Punchy 1-2 line headline with keywords.",
     "about_summary": "3-sentence professional bio connecting university studies to company domain."
+  },
+  "recruiter_outreach": {
+    "linkedin_connection_note": "Concise connection request note under 300 characters referencing common tech or interest in their team.",
+    "cold_email_subject": "Brief subject line e.g. Software Engineer Candidate - [Candidate Name]",
+    "cold_email_body": "Concise 3-paragraph outreach email to hiring manager emphasizing impact, relevant stack, and humble call to action.",
+    "thank_you_note": "Thoughtful post-interview thank you email referencing key technical discussions."
   }
 }
 """
@@ -227,13 +233,14 @@ def tailor_resume_and_letter(
     company_name: str = "",
     role_title: str = "",
     location: str = "",
+    career_level: str = "student",
     api_key: str = None,
     model: str = "gpt-4o-mini"
 ) -> dict:
     """
-    Calls OpenAI GPT to tailor the student's resume (Jake's Template B&W),
-    craft an Application Letter, generate 4-Category ATS Breakdown, Before/After Diff,
-    Mock Interview Questions, and LinkedIn Suite.
+    Calls OpenAI GPT to tailor the candidate's resume (Jake's Template B&W),
+    craft an Application Letter, generate 4-Category ATS Breakdown, Keyword Match & Gap Matrix,
+    Recruiter Outreach Suite, Before/After Diff, Mock Interview Questions, and LinkedIn Suite.
     """
     key = api_key or os.getenv("OPENAI_API_KEY")
     if not key or key.strip() == "":
@@ -241,18 +248,25 @@ def tailor_resume_and_letter(
 
     client = OpenAI(api_key=key.strip())
 
+    level_instruction = (
+        "CANDIDATE STAGE: Student / New Grad. Prioritize Education, coursework, academic achievements, and foundational projects."
+        if career_level == "student"
+        else "CANDIDATE STAGE: Experienced Professional. Prioritize Work Experience, architectural decisions, business impact, and leadership. Place Education at the bottom."
+    )
+
     user_prompt = f"""
 TARGET COMPANY: {company_name or 'Target Employer'}
 TARGET ROLE: {role_title or 'Target Role'}
 TARGET LOCATION: {location or 'Not specified'}
+{level_instruction}
 
 --- TARGET JOB DESCRIPTION ---
 {job_description}
 
---- STUDENT'S CURRENT RESUME / PROFILE ---
+--- CANDIDATE'S CURRENT RESUME / PROFILE ---
 {resume_text}
 
-Generate the complete enterprise application suite (Jake's Resume, Application Letter, 4-Category ATS breakdown, Before vs After comparisons, Interview prep, and LinkedIn suite).
+Generate the complete enterprise application suite (Jake's Resume, Application Letter, 4-Category ATS breakdown with matched and missing keywords, Recruiter Outreach suite, Before vs After comparisons, Interview prep, and LinkedIn suite).
 """
 
     response = client.chat.completions.create(
@@ -268,6 +282,62 @@ Generate the complete enterprise application suite (Jake's Resume, Application L
     raw_content = response.choices[0].message.content
     try:
         data = json.loads(raw_content)
+        data["career_level"] = career_level
         return data
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse GPT response as JSON: {e}\nRaw output: {raw_content[:300]}")
+
+
+def tune_bullet(
+    bullet_text: str,
+    mode: str,
+    target_role: str = "",
+    tech_stack: str = "",
+    api_key: str = None,
+    model: str = "gpt-4o-mini"
+) -> str:
+    """
+    Refines a single resume bullet point on demand.
+    Modes:
+      - 'add_metrics': Infuses realistic, quantifiable metrics/data/scale.
+      - 'more_technical': Emphasizes architectural depth, libraries, frameworks, performance.
+      - 'more_concise': Trims words to a punchy, crisp single-line ATS bullet under 22 words.
+    """
+    key = api_key or os.getenv("OPENAI_API_KEY")
+    if not key or key.strip() == "":
+        raise ValueError("OpenAI API Key is missing.")
+
+    client = OpenAI(api_key=key.strip())
+
+    mode_prompts = {
+        "add_metrics": "Enhance this bullet with realistic quantifiable impact (e.g. latency reduced by X%, throughput increased, X active users, test coverage). Do not sound artificial.",
+        "more_technical": "Make this bullet more technically rigorous by specifying tools, algorithms, protocols, data structures, or engineering patterns.",
+        "more_concise": "Make this bullet extremely concise, punchy, and readable in under 20 words, strictly starting with an active power verb."
+    }
+
+    directive = mode_prompts.get(mode, "Refine this bullet using the Google XYZ formula (Accomplished X by doing Z as measured by Y).")
+
+    prompt = f"""
+You are an expert technical resume editor.
+ORIGINAL BULLET: "{bullet_text}"
+TARGET ROLE: {target_role or 'Software Engineer'}
+RELEVANT TECH: {tech_stack or 'Modern tech stack'}
+
+GOAL: {directive}
+RULES:
+1. Return ONLY the single refined bullet point text.
+2. Do not enclose in quotes.
+3. Do not include markdown bullet symbols (* or -).
+4. Never invent degrees or unrelated companies.
+"""
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=120
+    )
+
+    refined = response.choices[0].message.content.strip().strip('"').strip("'").lstrip("•-* ")
+    return refined
+

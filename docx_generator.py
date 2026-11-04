@@ -122,115 +122,121 @@ def create_jakes_resume_docx(resume_data: dict) -> io.BytesIO:
         c_run = contact_p.add_run("  |  ".join(contact_parts))
         format_run(c_run, size_pt=9.5)
 
-    # --- 2. EDUCATION ---
-    education_list = resume_data.get("education", [])
-    if education_list:
-        add_section_header("Education")
-        for edu in education_list:
-            inst = edu.get("institution", "")
-            loc = edu.get("location", "")
-            deg = edu.get("degree", "")
-            dates = edu.get("dates", "")
-            gpa = edu.get("gpa", "")
+    # --- SECTION RENDERERS ---
+    def render_education():
+        education_list = resume_data.get("education", [])
+        if education_list:
+            add_section_header("Education")
+            for edu in education_list:
+                inst = edu.get("institution", "")
+                loc = edu.get("location", "")
+                deg = edu.get("degree", "")
+                dates = edu.get("dates", "")
+                gpa = edu.get("gpa", "")
 
-            # Line 1: Institution (Bold) | Location
-            add_two_column_line(inst, loc, left_bold=True, right_bold=False, space_before=2, space_after=0)
+                add_two_column_line(inst, loc, left_bold=True, right_bold=False, space_before=2, space_after=0)
+                deg_display = deg + (f"  (GPA: {gpa})" if gpa else "")
+                add_two_column_line(deg_display, dates, left_bold=False, right_bold=False, left_italic=True, right_italic=True, space_before=0, space_after=1)
 
-            # Line 2: Degree (Italic) | Dates (Italic)
-            deg_display = deg + (f"  (GPA: {gpa})" if gpa else "")
-            add_two_column_line(deg_display, dates, left_bold=False, right_bold=False, left_italic=True, right_italic=True, space_before=0, space_after=1)
+                cw = edu.get("relevant_coursework", [])
+                if cw:
+                    cw_p = doc.add_paragraph()
+                    cw_p.paragraph_format.space_before = Pt(0)
+                    cw_p.paragraph_format.space_after = Pt(2)
+                    r_label = cw_p.add_run("Relevant Coursework: ")
+                    format_run(r_label, size_pt=9.5, bold=True)
+                    r_val = cw_p.add_run(", ".join(cw) if isinstance(cw, list) else str(cw))
+                    format_run(r_val, size_pt=9.5)
 
-            # Coursework
-            cw = edu.get("relevant_coursework", [])
-            if cw:
-                cw_p = doc.add_paragraph()
-                cw_p.paragraph_format.space_before = Pt(0)
-                cw_p.paragraph_format.space_after = Pt(2)
-                r_label = cw_p.add_run("Relevant Coursework: ")
-                format_run(r_label, size_pt=9.5, bold=True)
-                r_val = cw_p.add_run(", ".join(cw) if isinstance(cw, list) else str(cw))
-                format_run(r_val, size_pt=9.5)
+    def render_experience():
+        experiences = resume_data.get("experience", [])
+        if experiences:
+            add_section_header("Experience")
+            for exp in experiences:
+                role = exp.get("role", "")
+                comp = exp.get("company", "")
+                loc = exp.get("location", "")
+                dates = exp.get("dates", "")
 
-    # --- 3. EXPERIENCE ---
-    experiences = resume_data.get("experience", [])
-    if experiences:
-        add_section_header("Experience")
-        for exp in experiences:
-            role = exp.get("role", "")
-            comp = exp.get("company", "")
-            loc = exp.get("location", "")
-            dates = exp.get("dates", "")
+                add_two_column_line(role, dates, left_bold=True, right_bold=False, space_before=3, space_after=0)
+                add_two_column_line(comp, loc, left_bold=False, right_bold=False, left_italic=True, right_italic=True, space_before=0, space_after=1)
 
-            # Line 1: Role (Bold) | Dates
-            add_two_column_line(role, dates, left_bold=True, right_bold=False, space_before=3, space_after=0)
+                for bullet in exp.get("bullets", []):
+                    b_p = doc.add_paragraph(style='List Bullet')
+                    b_p.paragraph_format.space_before = Pt(1)
+                    b_p.paragraph_format.space_after = Pt(1)
+                    b_p.paragraph_format.line_spacing = 1.15
+                    b_run = b_p.add_run(bullet)
+                    format_run(b_run, size_pt=9.5)
 
-            # Line 2: Company (Italic) | Location (Italic)
-            add_two_column_line(comp, loc, left_bold=False, right_bold=False, left_italic=True, right_italic=True, space_before=0, space_after=1)
+    def render_projects():
+        projects = resume_data.get("projects", [])
+        if projects:
+            add_section_header("Projects")
+            for proj in projects:
+                title = proj.get("title", "")
+                tech = proj.get("tech_stack", "")
+                dates = proj.get("dates", "")
 
-            # Bullets
-            for bullet in exp.get("bullets", []):
-                b_p = doc.add_paragraph(style='List Bullet')
-                b_p.paragraph_format.space_before = Pt(1)
-                b_p.paragraph_format.space_after = Pt(1)
-                b_p.paragraph_format.line_spacing = 1.15
-                b_run = b_p.add_run(bullet)
-                format_run(b_run, size_pt=9.5)
+                left_proj = f"{title}"
+                if tech:
+                    left_proj += f"  |  {tech}"
 
-    # --- 4. PROJECTS ---
-    projects = resume_data.get("projects", [])
-    if projects:
-        add_section_header("Projects")
-        for proj in projects:
-            title = proj.get("title", "")
-            tech = proj.get("tech_stack", "")
-            dates = proj.get("dates", "")
+                add_two_column_line(left_proj, dates, left_bold=True, right_bold=False, space_before=3, space_after=1)
 
-            # Line 1: Title | Tech Stack | Dates
-            left_proj = f"{title}"
-            if tech:
-                left_proj += f"  |  {tech}"
+                for bullet in proj.get("bullets", []):
+                    b_p = doc.add_paragraph(style='List Bullet')
+                    b_p.paragraph_format.space_before = Pt(1)
+                    b_p.paragraph_format.space_after = Pt(1)
+                    b_p.paragraph_format.line_spacing = 1.15
+                    b_run = b_p.add_run(bullet)
+                    format_run(b_run, size_pt=9.5)
 
-            add_two_column_line(left_proj, dates, left_bold=True, right_bold=False, space_before=3, space_after=1)
-
-            for bullet in proj.get("bullets", []):
-                b_p = doc.add_paragraph(style='List Bullet')
-                b_p.paragraph_format.space_before = Pt(1)
-                b_p.paragraph_format.space_after = Pt(1)
-                b_p.paragraph_format.line_spacing = 1.15
-                b_run = b_p.add_run(bullet)
-                format_run(b_run, size_pt=9.5)
-
-    # --- 5. TECHNICAL SKILLS ---
-    skills = resume_data.get("skills", {})
-    if skills:
-        add_section_header("Technical Skills")
-        if isinstance(skills, dict):
-            for category, items in skills.items():
+    def render_skills():
+        skills = resume_data.get("skills", {})
+        if skills:
+            add_section_header("Technical Skills")
+            if isinstance(skills, dict):
+                for category, items in skills.items():
+                    p = doc.add_paragraph()
+                    p.paragraph_format.space_before = Pt(1)
+                    p.paragraph_format.space_after = Pt(1)
+                    cat_run = p.add_run(f"{category}: ")
+                    format_run(cat_run, size_pt=9.5, bold=True)
+                    items_str = ", ".join(items) if isinstance(items, list) else str(items)
+                    items_run = p.add_run(items_str)
+                    format_run(items_run, size_pt=9.5)
+            elif isinstance(skills, list):
                 p = doc.add_paragraph()
                 p.paragraph_format.space_before = Pt(1)
                 p.paragraph_format.space_after = Pt(1)
-                cat_run = p.add_run(f"{category}: ")
-                format_run(cat_run, size_pt=9.5, bold=True)
-                items_str = ", ".join(items) if isinstance(items, list) else str(items)
-                items_run = p.add_run(items_str)
+                items_run = p.add_run(", ".join(skills))
                 format_run(items_run, size_pt=9.5)
-        elif isinstance(skills, list):
-            p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(1)
-            p.paragraph_format.space_after = Pt(1)
-            items_run = p.add_run(", ".join(skills))
-            format_run(items_run, size_pt=9.5)
 
-    # --- 6. CERTIFICATIONS / AWARDS ---
-    certs = resume_data.get("certifications_or_awards", [])
-    if certs:
-        add_section_header("Honors & Certifications")
-        for cert in certs:
-            c_p = doc.add_paragraph(style='List Bullet')
-            c_p.paragraph_format.space_before = Pt(1)
-            c_p.paragraph_format.space_after = Pt(1)
-            c_run = c_p.add_run(cert if isinstance(cert, str) else str(cert))
-            format_run(c_run, size_pt=9.5)
+    def render_certs():
+        certs = resume_data.get("certifications_or_awards", [])
+        if certs:
+            add_section_header("Honors & Certifications")
+            for cert in certs:
+                c_p = doc.add_paragraph(style='List Bullet')
+                c_p.paragraph_format.space_before = Pt(1)
+                c_p.paragraph_format.space_after = Pt(1)
+                c_run = c_p.add_run(cert if isinstance(cert, str) else str(cert))
+                format_run(c_run, size_pt=9.5)
+
+    career_level = resume_data.get("career_level", "student")
+    if career_level == "experienced":
+        render_experience()
+        render_projects()
+        render_skills()
+        render_education()
+        render_certs()
+    else:
+        render_education()
+        render_experience()
+        render_projects()
+        render_skills()
+        render_certs()
 
     buffer = io.BytesIO()
     doc.save(buffer)
