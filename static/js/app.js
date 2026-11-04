@@ -227,9 +227,10 @@ function initMap() {
   const coords = countryData.city_coords[state.targetHub] || countryData.coords;
 
   mapInstance = L.map("leaflet-map", { zoomControl: false }).setView(coords, 5);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  // 100% Free OpenStreetMap tiles (No API key, No tokens, No registration required)
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
-    attribution: ""
+    attribution: "&copy; OpenStreetMap contributors"
   }).addTo(mapInstance);
 
   mapMarker = L.circleMarker(coords, {
@@ -891,3 +892,4 @@ function showToast(msg) {
   t.style.display = "block";
   setTimeout(() => { t.style.display = "none"; }, 3000);
 }
+
