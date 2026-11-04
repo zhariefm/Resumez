@@ -501,7 +501,7 @@ body {
 }
 
 .tab-pane.active {
-  display: block;
+  display: block !important;
 }
 
 /* --- KEYWORD PILLS --- */

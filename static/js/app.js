@@ -496,9 +496,17 @@ function renderRecommendedCompanies() {
 
 function switchStep2Tab(tabName) {
   document.querySelectorAll(".tab-s2").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".tab-content-s2").forEach(c => c.classList.remove("active"));
-  document.getElementById(`tab-s2-${tabName}`).classList.add("active");
-  document.getElementById(`content-s2-${tabName}`).classList.add("active");
+  document.querySelectorAll(".tab-content-s2").forEach(c => {
+    c.classList.remove("active");
+    c.style.display = "none";
+  });
+  const tTab = document.getElementById(`tab-s2-${tabName}`);
+  const tContent = document.getElementById(`content-s2-${tabName}`);
+  if (tTab) tTab.classList.add("active");
+  if (tContent) {
+    tContent.classList.add("active");
+    tContent.style.display = "block";
+  }
 }
 
 async function tailorForCompany(idx) {
@@ -590,13 +598,25 @@ function renderStep3() {
   renderLinkedInView();
 
   loadPdfPreview();
+
+  // Reset to first tab (Resume)
+  switchStep3Tab('resume');
 }
 
 function switchStep3Tab(tabName) {
   document.querySelectorAll(".tab-s3").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".tab-content-s3").forEach(c => c.classList.remove("active"));
-  document.getElementById(`tab-s3-${tabName}`).classList.add("active");
-  document.getElementById(`content-s3-${tabName}`).classList.add("active");
+  document.querySelectorAll(".tab-content-s3").forEach(c => {
+    c.classList.remove("active");
+    c.style.display = "none";
+  });
+
+  const tTab = document.getElementById(`tab-s3-${tabName}`);
+  const tContent = document.getElementById(`content-s3-${tabName}`);
+  if (tTab) tTab.classList.add("active");
+  if (tContent) {
+    tContent.classList.add("active");
+    tContent.style.display = "block";
+  }
 }
 
 function setPreviewMode(mode) {
@@ -616,18 +636,31 @@ function loadPdfPreview() {
 
 // --- KEYWORD MATRIX ---
 function renderKeywordMatrix() {
-  const assessment = state.tailoredData.ats_assessment || {};
+  const assessment = state.tailoredData?.ats_assessment || {};
   const matched = assessment.key_matched_keywords || [];
   const missing = assessment.missing_or_recommended_keywords || [];
 
   const total = matched.length + missing.length;
-  const coverage = total > 0 ? Math.round((matched.length / total) * 100) : 88;
+  const coverage = total > 0 ? Math.round((matched.length / total) * 100) : (assessment.match_score || 88);
 
-  document.getElementById("kw-coverage-num").textContent = `${coverage}%`;
-  document.getElementById("kw-coverage-bar").style.width = `${coverage}%`;
+  const covNum = document.getElementById("kw-coverage-num");
+  const covBar = document.getElementById("kw-coverage-bar");
+  if (covNum) covNum.textContent = `${coverage}%`;
+  if (covBar) covBar.style.width = `${coverage}%`;
 
-  document.getElementById("matched-keywords-container").innerHTML = matched.map(k => `<span class="tag-match">✓ ${k}</span>`).join("");
-  document.getElementById("missing-keywords-container").innerHTML = missing.map(k => `<span class="tag-miss">⚠️ ${k}</span>`).join("");
+  const mContainer = document.getElementById("matched-keywords-container");
+  if (mContainer) {
+    mContainer.innerHTML = matched.length > 0 
+      ? matched.map(k => `<span class="tag-match">✓ ${k}</span>`).join("")
+      : '<span style="color: #86868b; font-size: 0.84rem;">None detected.</span>';
+  }
+
+  const missContainer = document.getElementById("missing-keywords-container");
+  if (missContainer) {
+    missContainer.innerHTML = missing.length > 0 
+      ? missing.map(k => `<span class="tag-miss">⚠️ ${k}</span>`).join("")
+      : '<span style="color: #34c759; font-size: 0.84rem;">✓ Full match achieved.</span>';
+  }
 }
 
 // --- BULLET TUNER ---
@@ -801,20 +834,50 @@ function renderResumePaperView() {
 
 // --- COVER LETTER VIEW ---
 function renderCoverLetterView() {
-  const l = state.tailoredData.application_letter || {};
-  const p = state.tailoredData.personal_info || {};
-  const targetComp = state.tailoredData.ats_assessment?.target_company || "Company";
+  const d = state.tailoredData || {};
+  const l = d.application_letter || {};
+  const p = d.personal_info || {};
+  const targetComp = d.ats_assessment?.target_company || "Company";
 
-  document.getElementById("cover-letter-view").innerHTML = `
-    <div style="font-size: 0.92rem; margin-bottom: 0.6rem;">${l.date || 'Current Date'}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 0.85rem;"><b>To:</b> Hiring Team, ${targetComp}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 0.85rem;">${l.greeting || 'Dear Hiring Team,'}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 0.85rem;">${l.opening_hook || l.opening || ''}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 0.85rem;">${l.why_company || l.body_paragraph_1 || ''}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 0.85rem;">${l.student_value_add || l.body_paragraph_2 || ''}</div>
-    <div style="font-size: 0.92rem; margin-bottom: 1.25rem;">${l.closing_and_call_to_action || l.closing || ''}</div>
-    <div style="font-size: 0.92rem;">${l.sign_off || 'Sincerely,'}<br><b>${p.name || 'Candidate'}</b></div>
-  `;
+  let bodyHtml = "";
+
+  if (typeof l === "string" && l.trim()) {
+    bodyHtml = `<div style="white-space: pre-wrap; font-size: 0.92rem; line-height: 1.6;">${l}</div>`;
+  } else {
+    const dateStr = l.date || new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const recipient = l.recipient || "Hiring Team";
+    const greeting = l.greeting || `Dear ${recipient},`;
+
+    const paras = [];
+    if (l.opening || l.opening_hook) paras.push(l.opening || l.opening_hook);
+    if (l.body_paragraph_1 || l.why_company) paras.push(l.body_paragraph_1 || l.why_company);
+    if (l.body_paragraph_2 || l.student_value_add) paras.push(l.body_paragraph_2 || l.student_value_add);
+    if (l.closing || l.closing_and_call_to_action) paras.push(l.closing || l.closing_and_call_to_action);
+
+    if (paras.length === 0) {
+      if (Array.isArray(l.paragraphs)) paras.push(...l.paragraphs);
+      else if (l.content) paras.push(l.content);
+      else if (l.body) paras.push(l.body);
+    }
+
+    const parasHtml = paras.length > 0 
+      ? paras.map(txt => `<p style="margin-bottom: 0.85rem; font-size: 0.92rem; line-height: 1.6;">${txt}</p>`).join("")
+      : '<p style="color: #86868b; font-style: italic;">No cover letter text generated.</p>';
+
+    bodyHtml = `
+      <div style="font-size: 0.92rem; margin-bottom: 0.6rem; color: #515154;">${dateStr}</div>
+      <div style="font-size: 0.92rem; margin-bottom: 0.85rem;"><b>To:</b> ${recipient}, ${targetComp}</div>
+      <div style="font-size: 0.92rem; margin-bottom: 0.85rem; font-weight: 500;">${greeting}</div>
+      ${parasHtml}
+      <div style="font-size: 0.92rem; margin-top: 1.25rem;">
+        ${l.sign_off || 'Sincerely,'}<br>
+        <b style="display: inline-block; margin-top: 0.25rem;">${p.name || 'Candidate'}</b>
+      </div>
+    `;
+  }
+
+  const container = document.getElementById("cover-letter-view");
+  if (container) container.innerHTML = bodyHtml;
 }
 
 // --- OUTREACH SUITE ---
