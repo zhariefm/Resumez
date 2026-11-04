@@ -143,6 +143,19 @@ function setupEventListeners() {
   // Modal toggle
   document.getElementById("btn-open-apps").addEventListener("click", openApplicationsModal);
   document.getElementById("btn-close-modal").addEventListener("click", closeApplicationsModal);
+
+  // Custom location search input & button
+  const searchBtn = document.getElementById("btn-search-location");
+  const customLocInput = document.getElementById("custom-location-input");
+  if (searchBtn && customLocInput) {
+    searchBtn.addEventListener("click", () => searchCustomLocation());
+    customLocInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        searchCustomLocation();
+      }
+    });
+  }
 }
 
 // --- NAVIGATION ---
@@ -241,6 +254,82 @@ function initMap() {
     opacity: 1,
     fillOpacity: 0.9
   }).addTo(mapInstance);
+
+  // Click anywhere on map to pin custom location
+  mapInstance.on("click", async (e) => {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    mapMarker.setLatLng([lat, lon]);
+
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+        headers: { "Accept-Language": "en" }
+      });
+      const data = await res.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.state || "Custom Location";
+        const country = addr.country || "";
+        const formatted = country ? `${city}, ${country}` : city;
+
+        state.targetLocation = formatted;
+        document.getElementById("custom-location-input").value = formatted;
+        document.getElementById("active-location-display").textContent = formatted;
+        showToast(`Pinned: ${formatted}`);
+      } else {
+        const fallback = `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+        state.targetLocation = fallback;
+        document.getElementById("active-location-display").textContent = fallback;
+      }
+    } catch (err) {
+      const fallback = `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+      state.targetLocation = fallback;
+      document.getElementById("active-location-display").textContent = fallback;
+    }
+  });
+}
+
+async function searchCustomLocation() {
+  const input = document.getElementById("custom-location-input");
+  const query = input ? input.value.trim() : "";
+  if (!query) return;
+
+  showToast(`Searching for "${query}"...`);
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+      headers: { "Accept-Language": "en" }
+    });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      const coords = [lat, lon];
+
+      if (mapInstance && mapMarker) {
+        mapInstance.flyTo(coords, 10);
+        mapMarker.setLatLng(coords);
+      }
+
+      const parts = data[0].display_name.split(", ").filter(Boolean);
+      const cleanLoc = parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : data[0].display_name;
+
+      state.targetLocation = cleanLoc;
+      const locDisp = document.getElementById("active-location-display");
+      if (locDisp) locDisp.textContent = cleanLoc;
+      showToast(`Location set to ${cleanLoc}`);
+    } else {
+      // Direct text fallback
+      state.targetLocation = query;
+      const locDisp = document.getElementById("active-location-display");
+      if (locDisp) locDisp.textContent = query;
+      showToast(`Location set to "${query}"`);
+    }
+  } catch (err) {
+    state.targetLocation = query;
+    const locDisp = document.getElementById("active-location-display");
+    if (locDisp) locDisp.textContent = query;
+    showToast(`Location set to "${query}"`);
+  }
 }
 
 function updateMap() {

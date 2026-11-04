@@ -96,20 +96,33 @@
         <label class="form-label">Target Location</label>
         <div class="grid-2">
           <div>
-            <div style="margin-bottom: 0.75rem;">
-              <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 2px;">Country</label>
-              <select id="select-country" class="apple-select"></select>
+            <div style="margin-bottom: 0.65rem;">
+              <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 3px;">Search or Enter Any Location</label>
+              <div style="display: flex; gap: 0.4rem;">
+                <input type="text" id="custom-location-input" class="apple-input" placeholder="e.g. Zurich, Switzerland or Austin, TX">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-search-location">Find</button>
+              </div>
             </div>
-            <div>
-              <label style="font-size: 0.8rem; color: #86868b; display: block; margin-bottom: 2px;">City / Region</label>
-              <select id="select-hub" class="apple-select"></select>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem;">
+              <span style="font-size: 0.74rem; color: #86868b; text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">or choose major tech hub</span>
             </div>
-            <div style="font-size: 0.82rem; color: #86868b; margin-top: 0.5rem;">
+            <div class="grid-2" style="margin-bottom: 0.5rem; gap: 0.5rem;">
+              <div>
+                <select id="select-country" class="apple-select" style="font-size: 0.86rem; padding: 0.5rem 0.65rem;"></select>
+              </div>
+              <div>
+                <select id="select-hub" class="apple-select" style="font-size: 0.86rem; padding: 0.5rem 0.65rem;"></select>
+              </div>
+            </div>
+            <div style="font-size: 0.82rem; color: #86868b; margin-top: 0.4rem;">
               Active location: <strong id="active-location-display" style="color: #1d1d1f;">San Francisco Bay Area, CA, United States</strong>
+            </div>
+            <div style="font-size: 0.76rem; color: #a1a1a6; margin-top: 2px;">
+              Tip: You can also click directly anywhere on the map to set your location.
             </div>
           </div>
           <div>
-            <div id="leaflet-map" style="width: 100%; height: 180px; border-radius: 14px; border: 1px solid #d2d2d7; overflow: hidden;"></div>
+            <div id="leaflet-map" style="width: 100%; height: 200px; border-radius: 14px; border: 1px solid #d2d2d7; overflow: hidden; cursor: crosshair;"></div>
           </div>
         </div>
       </div>
